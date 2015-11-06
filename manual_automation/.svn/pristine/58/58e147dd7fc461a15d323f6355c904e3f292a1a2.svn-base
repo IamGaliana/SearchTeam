@@ -1,0 +1,688 @@
+package com.dangdang;
+
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
+
+import org.slf4j.LoggerFactory;
+
+import com.dangdang.client.DBAction;
+import com.dangdang.client.URLBuilder;
+import com.dangdang.data.ForcePidCategory;
+import com.dangdang.data.FuncCatePath;
+import com.dangdang.data.FuncQuery;
+import com.dangdang.data.FuncVP;
+import com.dangdang.util.Calculator;
+import com.dangdang.util.ProdIterator;
+import com.dangdang.util.Utils;
+
+
+public class TestLauncher {
+
+	private final static org.slf4j.Logger logger = LoggerFactory.getLogger(TestLauncher.class);
+
+	/**
+	 * 回归测试方法入口, 常规方法
+	 * @param fc	query
+	 * @param fvpc	verify point
+	 */
+	public void start(String fc, String fvpc){
+		long d1 = System.currentTimeMillis() ;
+		DBAction dba = new DBAction();
+		dba.setFuncCondition(fc);
+		dba.setFvpCondition(fvpc);
+		List<FuncQuery> querys = dba.getFuncQuery();
+		List<FuncVP> fvps = dba.getFVP();
+		
+		String subject = "【搜索后台自动化测试】基础功能回归测试结果";
+		StringBuffer content = new StringBuffer();
+		content.append("<html><head><meta http-equiv=Content-Type content='text/html; charset=utf-8'></head><body><table border=1 cellspacing=0 cellpadding=0><tr><th>功能模块</th><th>通过query</th><th>失败query</th><th>跳过query</th><th>总计</th><th>耗时</th></tr>");
+		
+		// 增加脚本低通过率预警邮件内容，modified by 高彦君 @ 205/06/04 
+		String warnSubject = "【搜索后台自动化测试】预警！脚本通过率低";
+		StringBuffer warnContent = new StringBuffer();
+		warnContent.append("<html><head><meta http-equiv=Content-Type content='text/html; charset=utf-8'></head><body><table border=1 cellspacing=0 cellpadding=0><tr><th>功能模块</th><th>通过query</th><th>失败query</th><th>跳过query</th><th>总计</th><th>实际通过率</th><th>预期通过率</th></tr>");
+		boolean doSendWarnMail = false;
+		
+		//根据数据库中是否取到的fvps选择验证功能点，fvps取不到则取FuncQuery中的fvps
+		if(fvps.size()>0){						
+			for(FuncVP fvp : fvps){
+				int passed=0, failed=0, skiped=0;
+				for(FuncQuery query : querys){
+					int rt = doQuery(fvp.getFvp(), query.getFquery(), query.getMedium());
+					switch(rt){
+						case 0:
+							passed += 1;
+							break;
+						case -1:
+							failed += 1;
+							break;
+						case -2:
+							skiped += 1;
+							break;
+						default:
+							failed += 1;							
+					}
+				}		
+				logger.info(String.format(" - [LOG_SUMMARY] - vp: %s, passed: %s, failed: %s, skiped: %s", fvp.getFvpname(), passed, failed, skiped));
+				long d2 = System.currentTimeMillis();
+				String d3 = Math.ceil((d2-d1)/60000.0)+"分钟";
+				content.append(String.format("<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>", 
+						fvp.getFvpname(), passed, failed, skiped, passed+failed+skiped, d3));
+				
+				// 增加脚本低通过率预警邮件内容，计算实际通过率，与fvp.minpassrate比较后决定是否发送邮件，modified by 高彦君 @ 205/06/04 
+				double actualPassrate = Calculator.passrate(passed,passed+failed+skiped);
+				double expectedPassrate = fvp.getMinPassrate();
+				// 如果通过率比预期的低，发送邮件
+				if(actualPassrate < expectedPassrate){
+					warnContent.append(String.format("<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>", 
+							fvp.getFvpname(), passed, failed, skiped, passed+failed+skiped, actualPassrate + "%", expectedPassrate + "%"));
+					doSendWarnMail = true;
+				}					
+			}			
+			
+			content.append("</table></body></html>");
+			Utils.sendMail(subject, content.toString(), "HTML");
+			
+			// 增加脚本低通过率预警邮件内容，modified by 高彦君 @ 205/06/04
+			if (doSendWarnMail){
+				warnContent.append("</table></body></html>");
+				Utils.sendWarningMail(warnSubject, warnContent.toString(), "HTML");
+			}
+		}else{		
+			int passed=0, failed=0, skiped=0;
+			for(FuncQuery query: querys){				
+				int rt = doQuery(query.getVerify_point(), query.getFquery(), query.getMedium());
+				switch(rt){
+				case 0:
+					passed += 1;
+					break;
+				case -1:
+					failed += 1;
+					break;
+				case -2:
+					skiped += 1;
+					break;
+				default:
+					failed += 1;							
+				}
+			}
+			logger.info(String.format(" - [LOG_SUMMARY] - passed: %s, failed: %s, skiped: %s", passed, failed, skiped));
+			String funcvp = "";
+			if(querys.size()>0){
+				String fvp = querys.get(0).getVerify_point();
+				if (fvp.contains(",")){
+					funcvp = "filtergroup";
+				}else{
+					funcvp = fvp;
+				}					
+			}
+			long d2 = System.currentTimeMillis();
+			String d3 = Math.ceil((d2-d1)/60000.0)+"分钟";
+			content.append(String.format("<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>", 
+					funcvp, passed, failed, skiped, passed+failed+skiped, d3));
+			content.append("</table></body></html>");
+			Utils.sendMail(subject, content.toString(), "HTML");	
+		}			
+		return;
+	}
+	
+	/**
+	 * search do query
+	 * @param vps		verify point
+	 * @param query		query
+	 * @param medium	medium
+	 * @return
+	 */
+	public int doQuery(String vps, String query, String medium){
+		boolean multiFilter = false;//默认关,多重过滤case开关，如果是true，需要修改用例中fvp条件为空以致fvp有多个
+		
+		if (query==null || vps==null){
+			logger.error(String.format(" - [LOG_FAILED] - query or vps not available query: %s, vps: %s", query, vps));
+			return -1;
+		}
+		logger.info(String.format(" - query: %s, function: %s", query, vps));
+		Map<String, String> infop = URLBuilder.getPreSearchInfo(query);  //获取默认的查询内容	
+		infop.put("medium", medium);
+		infop.put("query", query);
+		logger.debug(" - preSearchInfo: " + infop.toString());
+
+		check_VPS_infop(vps, infop, query);
+		
+		Map<String, String> urlp = URLBuilder.converURLPars(vps, query, infop);
+		logger.debug(" - SearchInfo: " + urlp.toString());
+		ProdIterator iterator = new ProdIterator(urlp);	
+		if(iterator.getTotalCount()<1&&multiFilter){
+			iterator = null;
+			iterator =  URLBuilder.getDefaultIterator(query);
+			//多重过滤筛选验证
+			if(URLBuilder.doMFVerify(vps, iterator, infop)){
+				logger.info(" - [LOG_SUCCESS] - verify function 【"+ vps+"】 for query: "+query);
+				return 0;
+			}else{
+				logger.error(" - [LOG_FAILED] - verify function 【"+ vps+"】 for query: "+query);
+				return -1;
+			}	
+		}else{
+			//单个过滤筛选验证
+			if(URLBuilder.doVerify(vps, iterator, infop)){
+				logger.info(" - [LOG_SUCCESS] - verify function 【"+ vps+"】 for query: "+query);
+				return 0;
+			}else{
+				logger.error(" - [LOG_FAILED] - verify function 【"+ vps+"】 for query: "+query);
+				return -1;
+			}
+		}
+	}
+	
+	/**
+	 * list start
+	 */
+	public void l_start(String fc, String fvpc){
+		long d1 = System.currentTimeMillis() ;
+		DBAction dba = new DBAction();
+		dba.setFuncCondition(fc);
+		dba.setFvpCondition(fvpc);
+		List<FuncCatePath> categorys = dba.getFuncCatePath();
+		List<FuncVP> fvps = dba.getFVP();
+		
+		String subject = "【搜索后台自动化测试】基础功能回归测试结果";
+		StringBuffer content = new StringBuffer();
+		content.append("<html><head><meta http-equiv=Content-Type content='text/html; charset=utf-8'></head><body><table border=1 cellspacing=0 cellpadding=0><tr><th>功能模块</th><th>通过category</th><th>失败category</th><th>跳过category</th><th>总计</th><th>耗时</th></tr>");
+		
+		// 增加脚本低通过率预警邮件内容，modified by 高彦君 @ 205/06/04
+		String warnSubject = "【搜索后台自动化测试】脚本低通过率预警邮件";
+		StringBuffer warnContent = new StringBuffer();
+		warnContent.append("<html><head><meta http-equiv=Content-Type content='text/html; charset=utf-8'></head><body><table border=1 cellspacing=0 cellpadding=0><tr><th>功能模块</th><th>通过query</th><th>失败query</th><th>跳过query</th><th>总计</th><th>实际通过率</th><th>预期通过率</th></tr>");
+		boolean doSendWarnMail = false;
+		
+		//根据数据库中是否取到的fvps选择验证功能点，fvps取不到则取FuncQuery中的fvps
+		if(fvps.size()>0){						
+			for(FuncVP fvp : fvps){
+				int passed=0, failed=0, skiped=0;
+				for(FuncCatePath category : categorys){
+					int rt = l_doQuery(fvp.getFvp(), category.getCat_path(), category.getFcate_name());
+					switch(rt){
+						case 0:
+							passed += 1;
+							break;
+						case -1:
+							failed += 1;
+							break;
+						case -2:
+							skiped += 1;
+							break;
+						default:
+							failed += 1;							
+					}
+				}	
+				
+				logger.info(String.format(" - [LOG_SUMMARY] - vp: %s, passed: %s, failed: %s, skiped: %s", fvp.getFvpname(), passed, failed, skiped));
+				long d2 = System.currentTimeMillis();
+				String d3 = Math.ceil((d2-d1)/60000.0)+"分钟";
+				content.append(String.format("<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>", 
+						fvp.getFvpname(), passed, failed, skiped, passed+failed+skiped, d3));
+				
+				// 增加脚本低通过率预警邮件内容，计算实际通过率，与fvp.minpassrate比较后决定是否发送邮件，modified by 高彦君 @ 205/06/04
+				double actualPassrate = Calculator.passrate(passed,passed+failed+skiped);
+				double expectedPassrate = fvp.getMinPassrate();
+				if(actualPassrate < expectedPassrate){
+					warnContent.append(String.format("<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>", 
+							fvp.getFvpname(), passed, failed, skiped, passed+failed+skiped, actualPassrate + "%", expectedPassrate + "%"));
+					doSendWarnMail = true;
+				}	
+			}				
+			content.append("</table></body></html>");
+			Utils.sendMail(subject, content.toString(), "HTML");
+			
+			// 增加脚本低通过率预警邮件内容，modified by 高彦君 @ 205/06/04
+			if (doSendWarnMail){
+				warnContent.append("</table></body></html>");
+				Utils.sendWarningMail(warnSubject, warnContent.toString(), "HTML");
+			}
+		}else{		
+			int passed=0, failed=0, skiped=0;
+			for(FuncCatePath category: categorys){				
+				int rt = l_doQuery(category.getVerify_point(), category.getCat_path(), category.getFcate_name());
+				switch(rt){
+				case 0:
+					passed += 1;
+					break;
+				case -1:
+					failed += 1;
+					break;
+				case -2:
+					skiped += 1;
+					break;
+				default:
+					failed += 1;							
+				}
+			}
+			logger.info(String.format(" - [LOG_SUMMARY] - passed: %s, failed: %s, skiped: %s", passed, failed, skiped));
+			String funcvp = "";
+			if(categorys.size()>0){
+				String fvp = categorys.get(0).getVerify_point();
+				if (fvp.contains(",")){
+					funcvp = "filtergroup";
+				}else{
+					funcvp = fvp;
+				}					
+			}
+			long d2 = System.currentTimeMillis();
+			String d3 = Math.ceil((d2-d1)/60000.0)+"分钟";
+			content.append(String.format("<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>", 
+					funcvp, passed, failed, skiped, passed+failed+skiped, d3));
+			content.append("</table></body></html>");
+			Utils.sendMail(subject, content.toString(), "HTML");
+		}			
+		return;
+	}
+
+	/**
+	 * list do query
+	 */
+	public int l_doQuery(String vps, String catepath, String catename){
+		boolean multiFilter = false;//默认关,多重过滤case开关，如果是true，需要修改用例中fvp条件为空以致fvp有多个
+		
+		if (catepath==null || vps==null){
+			logger.error(String.format(" - [LOG_FAILED] - category or vps not available category: %s, vps: %s", catename+catepath, vps));
+			return -1;
+		}
+		logger.info(String.format(" - [LOG_SUMMARY] - categoryname: %s, function: %s", catename+catepath, vps));
+		Map<String, String> infop = URLBuilder.l_getPreSearchInfo(catepath);  //获取默认的查询内容
+		if(infop.isEmpty()){
+			logger.error(String.format(" - [LOG_SKIP] - category  %s, something wrong with presearch result, it is empty.", catename+catepath));
+			return -2;
+		}
+		infop.put("catename", catename);
+		infop.put("cat_paths", catepath);
+		logger.info(" - [LOG_SUMMARY] - preSearchInfo: " + infop.toString());
+		
+//		if (!medium.equals(infop.get("template"))){
+//			logger.error(String.format(" - [LOG_FAILED] - query %s, Template not according", query));
+//			return -1;
+//		}
+		if (Integer.valueOf(infop.get("totalCount"))<1){
+			logger.error(String.format(" - [LOG_SKIP] - category %s, No results", catename+catepath));
+			return -2;
+		}
+		if (vps.contains("priceInterval") && infop.get("priceInterval").equals("")){
+			logger.error(String.format(" - [LOG_SKIP] - category %s, No priceInterval", catename+catepath));
+			return -2;
+		}
+		if (vps.contains("brand") && infop.get("brand").equals("")){
+			logger.error(String.format(" - [LOG_SKIP] - category %s, No brand", catename+catepath));
+			return -2;
+		}
+		if (vps.contains("texture") && infop.get("template").equals("0")){
+			logger.error(String.format(" - [LOG_SKIP] - category %s, book No texture", catename+catepath));
+			return -2;
+		}
+		
+		Map<String, String> urlp = URLBuilder.l_converURLPars(vps, catepath, infop);
+		logger.debug(" - SearchInfo: " + urlp.toString());
+		ProdIterator iterator = new ProdIterator(urlp);	
+		if(iterator.getTotalCount() <1 && multiFilter){
+			iterator = null;
+			iterator =  URLBuilder.l_getDefaultIterator(catepath);
+			//多重过滤筛选验证
+			if(URLBuilder.doMFVerify(vps, iterator, infop)){
+				logger.info(" - [LOG_SUCCESS] - verify function 【"+ vps+"】 for category: "+catename+catepath);
+				return 0;
+			}else{
+				logger.error(" - [LOG_FAILED] - verify function 【"+ vps+"】 for category: "+catename+catepath);
+				return -1;
+			}	
+		}else{
+			//单个过滤筛选验证
+			if(URLBuilder.doVerify(vps, iterator, infop)){
+				logger.info(" - [LOG_SUCCESS] - verify function 【"+ vps+"】 for category: "+catename+catepath);
+				return 0;
+			}else{
+				logger.error(" - [LOG_FAILED] - verify function 【"+ vps+"】 for category: "+catename+catepath);
+				return -1;
+			}
+		}
+	}
+		
+	/**
+	 * add by dongxiaobing
+	 * overload start(),add one parameter category_path about function doQuery()
+	 * 
+	 */
+	public void start(String fc, String fvpc,String falg){
+		long d1 = System.currentTimeMillis() ;
+		DBAction dba = new DBAction();
+		dba.setFuncCondition(fc);
+		dba.setFvpCondition(fvpc);
+		List<FuncQuery> querys = dba.getFuncQuery();
+		List<FuncVP> fvps = dba.getFVP();
+		
+		String subject = "【搜索后台自动化测试】基础功能回归测试结果";
+		StringBuffer content = new StringBuffer();
+		content.append("<html><head><meta http-equiv=Content-Type content='text/html; charset=utf-8'></head><body><table border=1 cellspacing=0 cellpadding=0><tr><th>功能模块</th><th>通过query</th><th>失败query</th><th>跳过query</th><th>总计</th><th>耗时</th></tr>");
+		
+		// 增加脚本低通过率预警邮件内容，modified by 高彦君 @ 205/06/04 
+		String warnSubject = "【搜索后台自动化测试】预警！脚本通过率低";
+		StringBuffer warnContent = new StringBuffer();
+		warnContent.append("<html><head><meta http-equiv=Content-Type content='text/html; charset=utf-8'></head><body><table border=1 cellspacing=0 cellpadding=0><tr><th>功能模块</th><th>通过query</th><th>失败query</th><th>跳过query</th><th>总计</th><th>实际通过率</th><th>预期通过率</th></tr>");
+		boolean doSendWarnMail = false;
+		
+		//根据数据库中是否取到的fvps选择验证功能点，fvps取不到则取FuncQuery中的fvps
+		if(fvps.size()>0){						
+			for(FuncVP fvp : fvps){
+				int passed=0, failed=0, skiped=0;
+				for(FuncQuery query : querys){
+					int rt = doQuery(fvp.getFvp(), query.getFquery(), query.getMedium(),query);
+					switch(rt){
+						case 0:
+							passed += 1;
+							break;
+						case -1:
+							failed += 1;
+							break;
+						case -2:
+							skiped += 1;
+							break;
+						default:
+							failed += 1;							
+					}
+				}		
+				logger.info(String.format(" - [LOG_SUMMARY] - vp: %s, passed: %s, failed: %s, skiped: %s", fvp.getFvpname(), passed, failed, skiped));
+				long d2 = System.currentTimeMillis();
+				String d3 = Math.ceil((d2-d1)/60000.0)+"分钟";
+				content.append(String.format("<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>", 
+						fvp.getFvpname(), passed, failed, skiped, passed+failed+skiped, d3));
+				
+				// 增加脚本低通过率预警邮件内容，计算实际通过率，与fvp.minpassrate比较后决定是否发送邮件，modified by 高彦君 @ 205/06/04 
+				double actualPassrate = Calculator.passrate(passed,passed+failed+skiped);
+				double expectedPassrate = fvp.getMinPassrate();
+				// 如果通过率比预期的低，发送邮件
+				if(actualPassrate < expectedPassrate){
+					warnContent.append(String.format("<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>", 
+							fvp.getFvpname(), passed, failed, skiped, passed+failed+skiped, actualPassrate + "%", expectedPassrate + "%"));
+					doSendWarnMail = true;
+				}					
+			}			
+			
+			content.append("</table></body></html>");
+			Utils.sendMail(subject, content.toString(), "HTML");
+			
+			// 增加脚本低通过率预警邮件内容，modified by 高彦君 @ 205/06/04
+			if (doSendWarnMail){
+				warnContent.append("</table></body></html>");
+				Utils.sendWarningMail(warnSubject, warnContent.toString(), "HTML");
+			}
+		}else{		
+			int passed=0, failed=0, skiped=0;
+			for(FuncQuery query: querys){				
+				int rt = doQuery(query.getVerify_point(), query.getFquery(), query.getMedium());
+				switch(rt){
+				case 0:
+					passed += 1;
+					break;
+				case -1:
+					failed += 1;
+					break;
+				case -2:
+					skiped += 1;
+					break;
+				default:
+					failed += 1;							
+				}
+			}
+			logger.info(String.format(" - [LOG_SUMMARY] - passed: %s, failed: %s, skiped: %s", passed, failed, skiped));
+			String funcvp = "";
+			if(querys.size()>0){
+				String fvp = querys.get(0).getVerify_point();
+				if (fvp.contains(",")){
+					funcvp = "filtergroup";
+				}else{
+					funcvp = fvp;
+				}					
+			}
+			long d2 = System.currentTimeMillis();
+			String d3 = Math.ceil((d2-d1)/60000.0)+"分钟";
+			content.append(String.format("<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>", 
+					funcvp, passed, failed, skiped, passed+failed+skiped, d3));
+			content.append("</table></body></html>");
+			Utils.sendMail(subject, content.toString(), "HTML");	
+		}			
+		return;
+	}
+	
+	/**
+	 * add by dongxiaobing 
+	 * overload doQuery()
+	 * 分类反馈要用到
+	 */	
+	public int doQuery(String vps, String query, String medium,FuncQuery queryInstance){
+		boolean multiFilter = false;//默认关,多重过滤case开关，如果是true，需要修改用例中fvp条件为空以致fvp有多个
+		
+		if (query==null || vps==null){
+			logger.error(String.format(" - [LOG_FAILED] - query or vps not available query: %s, vps: %s", query, vps));
+			return -1;
+		}
+		logger.info(String.format(" - query: %s, function: %s", query, vps));
+		Map<String, String> infop = URLBuilder.getPreSearchInfo(query);  //获取默认的查询内容	
+		infop.put("medium", medium);
+		infop.put("query", query);
+		//将分类路径添加到map中，分类反馈需要用到
+		infop.put("category_path",queryInstance.getCat_path());
+		//将产品id添加map中，单品置顶需要用到
+		infop.put("product_id",queryInstance.getProduct_id());
+		
+		//调试信息，记得关闭
+		System.out.println(" - preSearchInfo: " + infop.toString());
+		
+		logger.debug(" - preSearchInfo: " + infop.toString());
+		
+		check_VPS_infop(vps, infop,query);
+	
+		Map<String, String> urlp = URLBuilder.converURLPars(vps, query, infop);
+		logger.debug(" - SearchInfo: " + urlp.toString());
+		ProdIterator iterator = new ProdIterator(urlp);	
+		if(iterator.getTotalCount()<1&&multiFilter){
+			iterator = null;
+			iterator =  URLBuilder.getDefaultIterator(query);
+			//多重过滤筛选验证
+			if(URLBuilder.doMFVerify(vps, iterator, infop)){
+				logger.info(" - [LOG_SUCCESS] - verify function 【"+ vps+"】 for query: "+query);
+				return 0;
+			}else{
+				logger.error(" - [LOG_FAILED] - verify function 【"+ vps+"】 for query: "+query);
+				return -1;
+			}	
+		}else{
+			//单个过滤筛选验证
+			if(URLBuilder.doVerify(vps, iterator, infop)){
+				logger.info(" - [LOG_SUCCESS] - verify function 【"+ vps+"】 for query: "+query);
+				return 0;
+			}else{
+				logger.error(" - [LOG_FAILED] - verify function 【"+ vps+"】 for query: "+query);
+				return -1;
+			}
+		}
+	}
+	
+	/**
+	 * 回归测试方法入口, 和常规方法不同的是，调用的doQuery方法是以FuncQuery和FuncVP整个对象为参数的
+	 * @param fc		function query, String type
+	 * @param fvpc		verify point, String type
+	 * @param flag		flag 暂时没有实际意义， 用于重载方法
+	 */
+	public void start(String fc, String fvpc, boolean flag){
+		long d1 = System.currentTimeMillis() ;
+		DBAction dba = new DBAction();
+		dba.setFuncCondition(fc);
+		dba.setFvpCondition(fvpc);
+		List<FuncQuery> querys = dba.getFuncQuery();
+		List<FuncVP> fvps = dba.getFVP();
+		
+		String subject = "【搜索后台自动化测试】基础功能回归测试结果";
+		StringBuffer content = new StringBuffer();
+		content.append("<html><head><meta http-equiv=Content-Type content='text/html; charset=utf-8'></head><body><table border=1 cellspacing=0 cellpadding=0><tr><th>功能模块</th><th>通过query</th><th>失败query</th><th>跳过query</th><th>总计</th><th>耗时</th></tr>");
+		
+		// 增加脚本低通过率预警邮件内容，modified by 高彦君 @ 205/06/04 
+		String warnSubject = "【搜索后台自动化测试】预警！脚本通过率低";
+		StringBuffer warnContent = new StringBuffer();
+		warnContent.append("<html><head><meta http-equiv=Content-Type content='text/html; charset=utf-8'></head><body><table border=1 cellspacing=0 cellpadding=0><tr><th>功能模块</th><th>通过query</th><th>失败query</th><th>跳过query</th><th>总计</th><th>实际通过率</th><th>预期通过率</th></tr>");
+		boolean doSendWarnMail = false;
+		
+		Map<String, String> old_params = new HashMap<String, String>();
+		Map<String, String> new_params = new HashMap<String, String>();
+		
+		//根据数据库中是否取到的fvps选择验证功能点，fvps取不到则取FuncQuery中的fvps					
+		for(FuncVP fvp : fvps){
+			int passed=0, failed=0, skiped=0;	
+			// 把以下参数添加到默认查询结果的map中，方便doQuery中调用converURLPars时，作为参数构建请求url的map
+			switch(fvp.getFvp()){	
+			case "mbexclusive_addweight":
+				new_params.put("platform", "4");
+				new_params.put("platform", "1");
+				break;
+			case "timeless_addweight":
+				old_params.put("timelessSwitch", "0");
+				new_params.put("timelessSwitch", "1");
+				break;
+			case "specified_pool":
+				old_params.put("add_weight_list_switch", "0");
+				new_params.put("add_weight_list_switch", "1");
+				break;
+			}
+			
+			for(FuncQuery query : querys){
+				int rt = doQueryWith2Iterator(query, fvp, old_params, new_params);
+				switch(rt){
+					case 0:
+						passed += 1;
+						break;
+					case -1:
+						failed += 1;
+						break;
+					case -2:
+						skiped += 1;
+						break;
+					default:
+						failed += 1;							
+				}
+			}		
+			logger.info(String.format(" - [LOG_SUMMARY] - vp: %s, passed: %s, failed: %s, skiped: %s", fvp.getFvpname(), passed, failed, skiped));
+			long d2 = System.currentTimeMillis();
+			String d3 = Math.ceil((d2-d1)/60000.0)+"分钟";
+			content.append(String.format("<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>", 
+					fvp.getFvpname(), passed, failed, skiped, passed+failed+skiped, d3));
+			
+			// 增加脚本低通过率预警邮件内容，计算实际通过率，与fvp.minpassrate比较后决定是否发送邮件，modified by 高彦君 @ 205/06/04 
+			double actualPassrate = Calculator.passrate(passed,passed+failed+skiped);
+			double expectedPassrate = fvp.getMinPassrate();
+			// 如果通过率比预期的低，发送邮件
+			if(actualPassrate < expectedPassrate){
+				warnContent.append(String.format("<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>", 
+						fvp.getFvpname(), passed, failed, skiped, passed+failed+skiped, actualPassrate + "%", expectedPassrate + "%"));
+				doSendWarnMail = true;
+			}					
+		}			
+		
+		content.append("</table></body></html>");
+		Utils.sendMail(subject, content.toString(), "HTML");
+		
+		// 增加脚本低通过率预警邮件内容，modified by 高彦君 @ 205/06/04
+		if (doSendWarnMail){
+			warnContent.append("</table></body></html>");
+			Utils.sendWarningMail(warnSubject, warnContent.toString(), "HTML");
+		}
+		return;
+	}
+	
+	/**
+	 * 重载doQuery方法，以FuncQuery和FuncVP对象为参数，用于比较两个不同url请求返回的不同结果
+	 * @param queryObj
+	 * @param vpsObj
+	 * @param paramMap
+	 * @return
+	 */
+	public int doQueryWith2Iterator(FuncQuery queryObj, FuncVP vpsObj, Map<String, String> paramMap1, Map<String, String> paramMap2){
+		String query = queryObj.getFquery();
+		String vps = vpsObj.getFvp();
+		
+		if (query==null || vps==null){
+			logger.error(String.format(" - [LOG_FAILED] - query or vps not available query: %s, vps: %s", query, vps));
+			return -1;
+		}		
+		logger.info(String.format(" - query: %s, function: %s", query, vps));
+		
+		//获取默认的查询内容	
+		Map<String, String> infop = URLBuilder.getPreSearchInfo(query);		
+		logger.debug(" - preSearchInfo: " + infop.toString());
+
+		// 根据vps和欲查询结果判断是否返回skip，如无结果，或者 vps包含brand，但查询结果没有brand等
+		check_VPS_infop(vps, infop, query);
+		
+		// 参数集合1, 类似于：timelessSwitch = 0,add_weight_list_switch=0...
+		if(paramMap1 != null && ! paramMap1.isEmpty()){
+			for(Entry<String, String> entry : paramMap1.entrySet())
+				infop.put(entry.getKey(), entry.getValue());
+		}
+		Map<String, String> old_urlp = URLBuilder.converURLPars(vps, query, infop);
+		logger.debug(" - SearchInfo before: " + old_urlp.toString());
+		ProdIterator old_iterator = new ProdIterator(old_urlp,1800);
+		
+		// 参数集合2, 类似于：timelessSwitch = 1,add_weight_list_switch=1...
+		if(paramMap2 != null && ! paramMap2.isEmpty()){
+			for(Entry<String, String> entry : paramMap2.entrySet())
+				infop.put(entry.getKey(), entry.getValue());
+		}
+		Map<String, String> new_urlp = URLBuilder.converURLPars(vps, query, infop);		
+		logger.debug(" - SearchInfo after: " + new_urlp.toString());
+		ProdIterator new_iterator = new ProdIterator(new_urlp,1800);		
+		
+		if(old_iterator.getTotalCount() < 1 | new_iterator.getTotalCount() < 1 ){
+			logger.info(" - [LOG_SKIP] - verify function 【"+ vps+"】 for query: "+query);
+			return -2;
+		}
+		//单个过滤筛选验证
+		if(URLBuilder.doVerifyWith2Iterator(vps, query, old_iterator, new_iterator)){
+			logger.info(" - [LOG_SUCCESS] - verify function 【"+ vps+"】 for query: "+query);
+			return 0;
+		}else{
+			logger.error(" - [LOG_FAILED] - verify function 【"+ vps+"】 for query: "+query);
+			return -1;
+		}
+		
+	}
+	
+	/**
+	 * add by dongxiaobing
+	 * 封装方法
+	 */
+	public int check_VPS_infop(String vps,Map<String, String> infop,String query){
+		if (Integer.valueOf(infop.get("totalCount"))<1){
+			logger.info(String.format(" - [LOG_SKIP] - query %s, No results", query));
+			return -2;
+		}
+		if (vps.contains("priceInterval") && infop.get("priceInterval").equals("")){
+			logger.error(String.format(" - [LOG_SKIP] - query %s, No priceInterval", query));
+			return -2;
+		}
+		if (vps.contains("brand") && infop.get("brand").equals("")){
+			logger.error(String.format(" - [LOG_SKIP] - query %s, No brand", query));
+			return -2;
+		}
+		if (vps.contains("texture") && infop.get("template").equals("0")){
+			logger.error(String.format(" - [LOG_SKIP] - query %s, book No texture", query));
+			return -2;
+		}
+		if (vps.contains("ebook") && !infop.get("webTemplete").equals("0")){
+			logger.info(String.format(" - [LOG_SKIP] - query %s, webTemplete is not PUB_TEMPLATE", query));
+			return -2;
+		}
+		if (vps.contains("new_prod") && !infop.get("webTemplete").equals("0")){
+			logger.info(String.format(" - [LOG_SKIP] - query %s, webTemplete is not PUB_TEMPLATE", query));
+			return -2;
+		}
+		return 1;
+	}
+
+}

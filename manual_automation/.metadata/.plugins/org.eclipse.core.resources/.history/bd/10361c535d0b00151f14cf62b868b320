@@ -1,0 +1,209 @@
+package Test;
+
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Set;
+
+import com.linuxense.javadbf.DBFField;
+import com.linuxense.javadbf.DBFReader;
+import com.linuxense.javadbf.DBFWriter;
+import org.jamel.dbf.utils;
+
+public class filesOperation {
+	
+	public static List<String> m_files = new ArrayList<String>();
+	public static List<String> l_file = new ArrayList<String>();
+	public enum  SAVEDFIELD{
+		ks_yyjb,
+		js_zkz,
+		ks_xml,
+		ks_bpxx,
+		ks_bpxxmc
+	}
+	
+	public static void main(String[] args){
+		try {
+			m_files = GetFileMap("D:/test");
+			System.out.println("files in map:");
+			for(String file : m_files){
+				System.out.println("file:" + file);
+				ReadDBF(file);
+				writeDBF(file);
+			}
+			writeDBF(m_files[0]);
+		} catch (IOException e) {
+			System.out.println("IOException at main method: " + e.getMessage());
+			e.printStackTrace();
+		}
+		System.out.println("Ok!");
+	}
+	
+	/*
+	 * 递归读取指定文件夹下的所有文件
+	 */
+	public static List<String> GetFileMap(String path) throws FileNotFoundException, IOException{		
+		try{			
+			File file = new File(path);
+			File[] fileList = file.listFiles();
+			for(int i=0;i<fileList.length; i ++){			
+				if(fileList[i].isFile()){
+					// e.g:
+					// file path is:D:\test\cet6-2\cet6-2.xlsx
+					// file name is:cet6-2.xlsx
+					l_file.add(fileList[i].getAbsolutePath());
+				}else if(fileList[i].isDirectory()){
+					GetFileMap(fileList[i].getPath());
+				}
+			}
+		}
+		catch(FileNotFoundException e){
+			System.out.println("GetFileMap() exception:" + e.getMessage());
+		}
+		return l_file;
+	}
+
+	public static void ReadDBF(String path){
+		InputStream fis = null;
+        try 
+        {  
+            //读取文件的输入流 
+            fis  = new FileInputStream(path);
+            //根据输入流初始化一个DBFReader实例，用来读取DBF文件信息
+            DBFReader reader = new DBFReader(fis);  
+            //调用DBFReader对实例方法得到path文件中字段的个数 
+            int fieldsCount = reader.getFieldCount();
+            
+            System.out.println("字段数:"+fieldsCount);
+            //取出字段信息   
+            for( int i=0; i<fieldsCount; i++)    
+            {   
+              DBFField field = reader.getField(i);
+              System.out.println(field.getName());
+              String name = reader.getField(i).getName();
+              for(SAVEDFIELD savedfield: SAVEDFIELD.values()){
+            	  if(savedfield.toString() != name){
+            		  if(RemoveFiled(name)){
+            			  System.out.println("remove filed " + name + "succeed!");
+            		  }else{
+            			  System.out.println("remove filed " + name + "failed!");
+            		  }
+            	  }
+              }
+            }   
+            
+            Object[] rowValues;   
+            //一条条取出path文件中记录   
+            while((rowValues = reader.nextRecord()) != null) 
+            {   
+              for( int i=0; i<rowValues.length; i++) 
+              {   
+                System.out.println(rowValues[i]); 
+              }   
+            }   
+            
+          }catch(Exception e){   
+        	  e.printStackTrace();  
+          }finally{
+        	  try{
+        		  fis.close();
+        		 }catch(Exception e){
+        			  
+        		 }  
+        	  } 
+        }
+
+	public static boolean RemoveFiled(String filedName){
+		boolean success = false;
+		return success;
+	}
+	
+	public static void writeDBF(String path)
+	 {
+		OutputStream fos = null;
+		  try  
+		  {   
+		      //定义DBF文件字段   			  
+		      DBFField[] fields = new DBFField[5]; 
+		      //分别定义各个字段信息，setFieldName和setName作用相同， 
+		      //只是setFieldName已经不建议使用   
+		      fields[0] = new DBFField();    
+		      fields[0].setName("ks_yyjb");   
+		      fields[0].setDataType(DBFField.FIELD_TYPE_C);   
+		      fields[0].setFieldLength(10);   
+		 
+		      fields[1] = new DBFField();   
+		      fields[1].setName("js_zkz");   
+		      fields[1].setDataType(DBFField.FIELD_TYPE_C);   
+		      fields[1].setFieldLength(20);   
+		 
+		      fields[2] = new DBFField();    
+		      fields[2].setName("ks_xml");  
+		      fields[2].setDataType(DBFField.FIELD_TYPE_N);   
+		      fields[2].setFieldLength(12);   
+		      fields[2].setDecimalCount(2);   
+		      
+		      fields[3] = new DBFField();    
+		      fields[3].setName("ks_bpxx");   
+		      fields[3].setDataType(DBFField.FIELD_TYPE_C);   
+		      fields[3].setFieldLength(20);   
+		 
+		      fields[4] = new DBFField();   
+		      fields[4].setName("ks_bpxxmc");  
+		      fields[4].setDataType(DBFField.FIELD_TYPE_N);   
+		      fields[4].setFieldLength(12);   
+		      fields[4].setDecimalCount(2);
+		 
+		      //DBFWriter writer = new DBFWriter(new File(path));   
+		 
+		      //定义DBFWriter实例用来写DBF文件   
+		      DBFWriter writer = new DBFWriter(); 
+		      //把字段信息写入DBFWriter实例，即定义表结构  
+		      writer.setFields(fields);   
+		      
+		      
+		      //一条条的写入记录   
+		      Object[] rowData = new Object[3]; 
+		      rowData[0] = "1000";   
+		      rowData[1] = "John";   
+		      rowData[2] = new Double(5000.00);
+		      rowData[3] = "1000";   
+		      rowData[4] = "John"; 
+		      writer.addRecord(rowData);   
+		 
+		      rowData = new Object[3];  
+		      rowData[0] = "1001";  
+		      rowData[1] = "Lalit"; 
+		      rowData[2] = new Double(3400.00);  
+		      rowData[3] = "1001";  
+		      rowData[4] = "Lalit"; 
+		      writer.addRecord(rowData);   
+		 
+		      
+		      //定义输出流，并关联的一个文件   
+		      fos = new FileOutputStream(path);
+		      //写入数据   
+		      writer.write(fos);   
+		 
+		      //writer.write();  
+		  }catch(Exception e)   
+		  {   
+		      e.printStackTrace();   
+		  }   
+		  finally  
+		  {   
+		      try{   
+		      fos.close();
+		      }catch(Exception e){}
+		  }
+	 }
+}

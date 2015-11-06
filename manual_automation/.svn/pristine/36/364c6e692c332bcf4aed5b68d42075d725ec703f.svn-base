@@ -1,0 +1,275 @@
+package com.dangdang;
+
+import java.io.ByteArrayOutputStream;
+import java.io.PrintStream;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import org.slf4j.LoggerFactory;
+import org.testng.annotations.AfterMethod;
+import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.Test;
+
+import com.dangdang.client.DBAction;
+import com.dangdang.client.URLBuilder;
+import com.dangdang.data.FuncQuery;
+import com.dangdang.data.FuncVP;
+import com.dangdang.util.Calculator;
+import com.dangdang.util.ProdIterator;
+import com.dangdang.util.Utils;
+import com.dangdang.verifier.search_ranking.QueryIdentifyCategoryVerifier;
+import com.dangdang.verifier.search_ranking.QueryIdentifyShopVerifier;
+
+/**
+ * 说明：验证以下功能点：识别query搜索类型：分类搜索，店铺搜索
+ * @author gaoyanjun
+ * 没有使用TestLauncher中的方法，是因为doQuery方法需要的不仅是string型的query和vp，而是整个数据对象
+ */
+public class QueryIdentifyScheduler {
+	private final static org.slf4j.Logger logger = LoggerFactory.getLogger(QueryIdentifyScheduler.class);
+	
+	@BeforeMethod 
+	public void setup() {
+	}  
+
+	@AfterMethod 
+	public void clearup() { 
+	}   
+	
+	/**
+	 * 分类搜索：
+		输入：
+    		Query + 分类筛选
+		预期结果：
+			结果集中所有单品的分类与被筛选分  类相同
+	 */
+	@Test(enabled=true, groups="p1")  
+	public void QueryIdentifyForCategory() { 
+		try{
+			long d1 = System.currentTimeMillis() ;
+			logger.info(Long.toString(d1));	
+			DBAction dba = new DBAction();
+			dba.setFuncCondition("verify_point='query_identify_category'");
+			dba.setFvpCondition("fvp_id = 40");
+			List<FuncQuery> querys = dba.getFuncQuery();
+			List<FuncVP> vps = dba.getFVP();
+			
+			String subject = "【搜索后台自动化测试】基础功能回归测试结果";
+			StringBuffer content = new StringBuffer();
+			content.append("<html><head><meta http-equiv=Content-Type content='text/html; charset=utf-8'></head><body><table border=1 cellspacing=0 cellpadding=0><tr><th>功能模块</th><th>通过query</th><th>失败query</th><th>跳过query</th><th>总计</th><th>耗时</th></tr>");
+			
+			String warnSubject = "【搜索后台自动化测试】预警！脚本通过率低";
+			StringBuffer warnContent = new StringBuffer();
+			warnContent.append("<html><head><meta http-equiv=Content-Type content='text/html; charset=utf-8'></head><body><table border=1 cellspacing=0 cellpadding=0><tr><th>功能模块</th><th>通过query</th><th>失败query</th><th>跳过query</th><th>总计</th><th>跳过率</th><th>实际通过率</th><th>预期通过率</th></tr>");
+			boolean doSendWarnMail = false;
+							
+			for(FuncVP vp : vps){
+				int passed = 0, failed = 0, skipped = 0;
+				for(FuncQuery query : querys){
+					int rt = doQuery(query, vp);
+					switch(rt){
+						case 0:
+							passed += 1;
+							break;
+						case -1:
+							failed +=1;
+							break;
+						case -2:
+							skipped +=1;
+							break;
+						default:
+							failed +=1;
+							break;
+					}
+				}
+				
+				logger.info(String.format(" - [LOG_SUMMARY] - vp: %s, passed: %s, failed: %s, skiped: %s", vp.getFvpname(), passed, failed, skipped));
+				long d2 = System.currentTimeMillis();
+				String d3 = Math.ceil((d2-d1)/60000.0)+"分钟";
+				content.append(String.format("<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>", 
+						vp.getFvpname(), passed, failed, skipped, passed+failed+skipped, d3));
+				
+				// 增加脚本低通过率预警邮件内容，计算实际通过率，与fvp.minpassrate比较后决定是否发送邮件，modified by 高彦君 @ 205/06/04 
+				double actualPassrate = Calculator.passrate(passed+skipped,passed+failed+skipped);
+				double expectedPassrate = vp.getMinPassrate();
+				double skipRate = Calculator.skiprate(skipped, passed+failed+skipped);
+				double maxSkipRate = vp.getMaxSkiprate();
+				// 如果通过率比预期的低，发送邮件
+				if(actualPassrate < expectedPassrate || (actualPassrate == expectedPassrate && skipRate > maxSkipRate)){				
+					warnContent.append(String.format("<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>", 
+							vp.getFvpname(), passed, failed, skipped, passed+failed+skipped, skipRate + "%",  actualPassrate + "%", expectedPassrate + "%"));
+					doSendWarnMail = true;
+				}					
+			}
+			
+			content.append("</table></body></html>");
+			Utils.sendMail(subject, content.toString(), "HTML");
+			
+			if (doSendWarnMail){
+				warnContent.append("</table></body></html>");
+				Utils.sendWarningMail(warnSubject, warnContent.toString(), "HTML");
+			}
+			
+		} catch (Exception e) {
+			ByteArrayOutputStream baos = new ByteArrayOutputStream();  
+			e.printStackTrace(new PrintStream(baos));  
+			String exception = baos.toString();  
+			logger.error(" - [LOG_EXCEPTION] - "+exception);
+			e.printStackTrace();
+		} finally {	
+		}
+	} 
+	
+
+		/**
+		 * 输入：
+    		Query 包含 指定店铺
+		        预期结果： 
+			结果集中所有单品的shop_id都和被筛选店铺一致
+		 */
+		@Test(enabled=true, groups="p1")  
+		public void QueryIdentifyForShop() { 
+			try{
+				long d1 = System.currentTimeMillis() ;
+				logger.info(Long.toString(d1));	
+				DBAction dba = new DBAction();
+				dba.setFuncCondition("verify_point = 'query_identify_shop'");
+				dba.setFvpCondition("fvp_id = 41");
+				List<FuncQuery> querys = dba.getFuncQuery();
+				List<FuncVP> vps = dba.getFVP();
+				
+				String subject = "【搜索后台自动化测试】基础功能回归测试结果";
+				StringBuffer content = new StringBuffer();
+				content.append("<html><head><meta http-equiv=Content-Type content='text/html; charset=utf-8'></head><body><table border=1 cellspacing=0 cellpadding=0><tr><th>功能模块</th><th>通过query</th><th>失败query</th><th>跳过query</th><th>总计</th><th>耗时</th></tr>");
+				
+				String warnSubject = "【搜索后台自动化测试】预警！脚本通过率低";
+				StringBuffer warnContent = new StringBuffer();
+				warnContent.append("<html><head><meta http-equiv=Content-Type content='text/html; charset=utf-8'></head><body><table border=1 cellspacing=0 cellpadding=0><tr><th>功能模块</th><th>通过query</th><th>失败query</th><th>跳过query</th><th>总计</th><th>跳过率</th><th>实际通过率</th><th>预期通过率</th></tr>");
+				boolean doSendWarnMail = false;
+								
+				for(FuncVP vp : vps){
+					int passed = 0, failed = 0, skipped = 0;
+					for(FuncQuery query : querys){
+						int rt = doQuery(query, vp);
+						switch(rt){
+							case 0:
+								passed += 1;
+								break;
+							case -1:
+								failed +=1;
+								break;
+							case -2:
+								skipped +=1;
+								break;
+							default:
+								failed +=1;
+								break;
+						}
+					}
+					
+					logger.info(String.format(" - [LOG_SUMMARY] - vp: %s, passed: %s, failed: %s, skiped: %s", vp.getFvpname(), passed, failed, skipped));
+					long d2 = System.currentTimeMillis();
+					String d3 = Math.ceil((d2-d1)/60000.0)+"分钟";
+					content.append(String.format("<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>", 
+							vp.getFvpname(), passed, failed, skipped, passed+failed+skipped, d3));
+					
+					// 增加脚本低通过率预警邮件内容，计算实际通过率，与fvp.minpassrate比较后决定是否发送邮件，modified by 高彦君 @ 205/06/04 
+					double actualPassrate = Calculator.passrate(passed+skipped,passed+failed+skipped);
+					double expectedPassrate = vp.getMinPassrate();
+					double skipRate = Calculator.skiprate(skipped, passed+failed+skipped);
+					double maxSkipRate = vp.getMaxSkiprate();
+					// 如果通过率比预期的低，发送邮件
+					if(actualPassrate < expectedPassrate || (actualPassrate == expectedPassrate && skipRate > maxSkipRate)){
+						warnContent.append(String.format("<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>", 
+								vp.getFvpname(), passed, failed, skipped, passed+failed+skipped, skipRate + "%", actualPassrate + "%", expectedPassrate + "%"));
+						doSendWarnMail = true;
+					}					
+				}
+				
+				content.append("</table></body></html>");
+				Utils.sendMail(subject, content.toString(), "HTML");
+				
+				if (doSendWarnMail){
+					warnContent.append("</table></body></html>");
+					Utils.sendWarningMail(warnSubject, warnContent.toString(), "HTML");
+				}
+				
+			} catch (Exception e) {
+				ByteArrayOutputStream baos = new ByteArrayOutputStream();  
+				e.printStackTrace(new PrintStream(baos));  
+				String exception = baos.toString();  
+				logger.error(" - [LOG_EXCEPTION] - "+exception);
+				e.printStackTrace();
+			} finally {	
+			}			
+		} 
+	
+	/**
+	 * 根据query和verify point，以及不同验证点，得到查询结果集，调用对应的验证方法
+	 * @param query 	query数据结构
+	 * @param vp		verify point 数据结构
+	 * @return			验证结果：0=pass，-1=fail，-2=skip
+	 */
+	private int doQuery(FuncQuery query, FuncVP vp){		
+		// 由于分类识别的url中，根据不同的分类，st既有pub，又有mall，所以自定义一个map存放不同的url参数
+		Map<String, String> paramMap =  new HashMap<String, String>();		
+		String q = query.getFquery();			// query词
+		logger.info(String.format(" - [LOG_SUMMARY] - Query: %s", q));	
+		String desc = query.getDesc();			// 描述字段，店铺识别用的，存放了店铺id
+		String cat_paths = query.getCat_path();	// 分类字段，分类识别用的，存放了请求url中的cat_path值
+		String fvp = vp.getFvp();			// 验证点
+	
+		// 分类识别验证
+		if (fvp.equals("query_identify_category")){	
+			Map<String, String> resultMap = new HashMap<String, String>();
+			// 增加url参数
+			paramMap.put("um", "search_ranking");
+			paramMap.put("st", desc);
+			paramMap.put("-cat_paths", cat_paths);
+			
+			// 构建请求map
+			resultMap = URLBuilder.convertURLParsTotalBasic(fvp, q, paramMap);
+			// 请求结果: http://ip:port/?q=**&um=search_ranking&st=pub、mall&-cat_paths=4001234&_new_tpl=1
+			ProdIterator iterator = new ProdIterator(resultMap);
+				
+			// 无结果，跳过
+			if(iterator.getTotalCount() < 1){
+				logger.info(String.format("SKIP - function [%s], query [%s]", fvp, q));
+				return -2;
+			}
+				
+			// 有结果，进行验证，验证逻辑：结果集中所有单品的cat_paths或classcode也url中的一致，则pass，否则fail
+			QueryIdentifyCategoryVerifier cateVerifier = new QueryIdentifyCategoryVerifier();
+			if(!cateVerifier.Verifier(iterator, cat_paths, q, fvp)){
+				logger.error(String.format("FAILED - function [%s], query [%s]", fvp, q));
+				return -1;
+			}	
+			logger.info(String.format("SUCCESS - function [%s], query [%s]", fvp, q));
+		} // 店铺识别：搜索“李宁官方旗舰店 鞋”，结果集中所有单品的shopid都是李宁官方旗舰店
+		else if (fvp.equals("query_identify_shop")){		
+			Map<String, String> map = new HashMap<String, String>();
+			// 在desc字段中存放了预期的shopid
+			String shopid = desc;
+			// 构建最基本的请求url
+			map = URLBuilder.converURLPars(fvp, q, null);	
+			// 结果集
+			ProdIterator iterator = new ProdIterator(map);
+			
+			// 无结果，跳过
+			if(iterator.getTotalCount() < 1){
+				logger.info(String.format("SKIP - function [%s], query [%s]", fvp, q));
+				return -2;
+			}
+			
+			// 有结果，进行验证；验证逻辑：query返回结果集中所有单品的shopid和搜索词中的店铺是同一个，shopid相同，则pass，否则fail
+			QueryIdentifyShopVerifier shopVerifier = new QueryIdentifyShopVerifier();
+			if(!shopVerifier.Verifier(iterator, shopid, q, fvp)){
+				logger.error(String.format("FAILED - function [%s], query [%s]", fvp, q));
+				return -1;
+			}
+			logger.info(String.format("SUCCESS - function [%s], query [%s]", fvp, q));	
+		}
+		return 0;
+	}
+}

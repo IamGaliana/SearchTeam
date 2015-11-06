@@ -1,0 +1,119 @@
+package com.dangdang;
+
+import java.io.ByteArrayOutputStream;
+import java.io.PrintStream;
+import java.net.MalformedURLException;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import org.dom4j.DocumentException;
+import org.dom4j.Node;
+import org.slf4j.LoggerFactory;
+import org.testng.annotations.AfterMethod;
+import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.Test;
+
+import com.dangdang.client.SearchRequester;
+import com.dangdang.client.URLBuilder;
+
+/**
+ * @author gaoyanjun@dangdang.com
+ * @version 
+ */
+public class IndexDelRecoverScheduler {
+	private final static org.slf4j.Logger logger = LoggerFactory.getLogger(IndexDelRecoverScheduler.class);
+
+	private  static List<String> pids = IndexDataHandler.PidList();
+	
+	@BeforeMethod
+	public void setup() {
+	}
+
+	@AfterMethod
+	public void clearup() {
+	}
+
+	
+	@Test(enabled = true, groups = "p2")
+	public void NormalIndexDeleteAndRecover() throws MalformedURLException, DocumentException {
+		// 先删除
+		boolean isDelete = true;
+		// API接口：http://10.255.254.71:8390/_index_del=1&_full_timestamp=1436263525 &_inc_num=134570&product_id=61040406
+		Map<String, String> delMap = new HashMap<String, String>();
+		delMap.put("_index_del", "1");
+		
+		// 针对每个pid进行删除操作，并记录状态
+		for(String pid: pids){
+			delMap.putAll(IndexDataHandler.GetFulltmAndIncNum("searcher"));
+			delMap.put("product_id", pid);
+			String url = URLBuilder.buildURL(delMap);
+			String ret = SearchRequester.get(url);
+			
+			if (ret.contains("OK")){
+				logger.info("delete request returns OK， pid [" + pid + "]");
+			}else{
+				logger.error("delete request returns [" + ret +"]， pid [" + pid + "]");
+			}
+			
+			// 验证： 再次查找，如果查不到，说明删除成功
+			List<Node> pidNode = URLBuilder.porductSearch(pid, false);
+			if(pidNode.isEmpty()){
+				logger.info("delete pid [" + pid + "] successfully!");	
+			}else{
+				isDelete = false;
+				logger.error("delete pid [" + pid + "] failed!");				
+			}
+		}
+		
+		if(isDelete){
+			logger.info(String.format(" - [LOG_SUCCESS] - normal delete method was succeed"));
+			
+			boolean isRecovered = true;
+			// 如果删除成功，再验证恢复接口，否则删除失败，无法验证恢复功能
+			Map<String, String> recoverMap = new HashMap<String, String>();
+			recoverMap.put("_index_recover", "1");
+			
+			// 针对每个pid进行删除操作，并记录状态
+			for(String pid: pids){
+				recoverMap.putAll(IndexDataHandler.GetFulltmAndIncNum("searcher"));
+				recoverMap.put("product_id", pid);
+				String url = URLBuilder.buildURL(recoverMap);
+				String ret = SearchRequester.get(url);
+				
+				if (ret.contains("OK")){
+					logger.info("recover request returns OK， pid [" + pid + "]");
+				}else{
+					logger.error("recover request returns [" + ret +"]， pid [" + pid + "]");
+				}
+				
+				// 验证： 再次查找，如果查不到，说明恢复失败
+				List<Node> pidNode = URLBuilder.porductSearch(pid, false);
+				if(!pidNode.isEmpty()){
+					logger.info("recover pid [" + pid + "] successfully!");	
+				}else{
+					isRecovered = false;
+					logger.error("recover pid [" + pid + "] failed!");				
+				}
+			}
+			
+			if(isRecovered){
+				logger.info(String.format(" - [LOG_SUCCESS] - normal recover method was succeed"));
+			}else{
+				logger.error(String.format(" - [LOG_FAILED] - normal recover method was failed"));
+			}
+			
+		}else{
+			logger.error(String.format(" - [LOG_FAILED] - normal delete method was failed, recover method has not been executed yet"));
+		}
+		
+		
+		
+	}
+	
+	@Test(enabled = true, groups = "p2")
+	public void NormalIndexRecover() throws MalformedURLException, DocumentException {
+		
+	}
+
+}

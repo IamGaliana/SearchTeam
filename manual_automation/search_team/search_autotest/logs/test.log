@@ -1,0 +1,24 @@
+2015-11-05 15:26:09,482 [main] INFO [IntelligenceCorrectionScheduler.java:70] Start at: 1446708369479
+2015-11-05 15:26:09,712 [main] INFO [IntelligenceCorrectionScheduler.java:132]  - [LOG SUMMARY] - query :¿²¼û
+2015-11-05 15:26:09,721 [main] INFO [URLBuilder.java:102]  - [URLBuilder] - URL: http://10.255.254.71:8390/?st=full&q=%BF%B2%BC%FB&_new_tpl=1&ps=60&um=search_ranking&
+2015-11-05 15:26:10,391 [main] INFO [IntelligenceCorrectionScheduler.java:159]  - [LOG PASS] - query:¿²¼û, original query: ¿²¼û, fixed query: ¿´¼û
+2015-11-05 15:26:10,392 [main] INFO [IntelligenceCorrectionScheduler.java:132]  - [LOG SUMMARY] - query :º¢¶ù±ùÏä
+2015-11-05 15:26:10,392 [main] INFO [URLBuilder.java:102]  - [URLBuilder] - URL: http://10.255.254.71:8390/?st=full&q=%BA%A2%B6%F9%B1%F9%CF%E4&_new_tpl=1&ps=60&um=search_ranking&
+2015-11-05 15:26:10,561 [main] INFO [IntelligenceCorrectionScheduler.java:159]  - [LOG PASS] - query:º¢¶ù±ùÏä, original query: º¢¶ù±ùÏä, fixed query: º£¶û±ùÏä
+2015-11-05 15:26:10,562 [main] INFO [IntelligenceCorrectionScheduler.java:132]  - [LOG SUMMARY] - query :Àî×ÜÊ¢
+2015-11-05 15:26:10,562 [main] INFO [URLBuilder.java:102]  - [URLBuilder] - URL: http://10.255.254.71:8390/?st=full&q=%C0%EE%D7%DC%CA%A2&_new_tpl=1&ps=60&um=search_ranking&
+2015-11-05 15:26:10,712 [main] INFO [IntelligenceCorrectionScheduler.java:159]  - [LOG PASS] - query:Àî×ÜÊ¢, original query: Àî×ÜÊ¢, fixed query: Àî×ÚÊ¢
+2015-11-05 15:26:10,713 [main] INFO [IntelligenceCorrectionScheduler.java:132]  - [LOG SUMMARY] - query :Ë®ä°´©
+2015-11-05 15:26:10,713 [main] INFO [URLBuilder.java:102]  - [URLBuilder] - URL: http://10.255.254.71:8390/?st=full&q=%CB%AE%E4%B0%B4%A9&_new_tpl=1&ps=60&um=search_ranking&
+2015-11-05 15:26:10,990 [main] INFO [IntelligenceCorrectionScheduler.java:159]  - [LOG PASS] - query:Ë®ä°´©, original query: Ë®ä°´©, fixed query: Ë®ä°´«
+2015-11-05 15:26:10,991 [main] INFO [IntelligenceCorrectionScheduler.java:132]  - [LOG SUMMARY] - query :ºéÂ¥ÃÎ
+2015-11-05 15:26:10,992 [main] INFO [URLBuilder.java:102]  - [URLBuilder] - URL: http://10.255.254.71:8390/?st=full&q=%BA%E9%C2%A5%C3%CE&_new_tpl=1&ps=60&um=search_ranking&
+2015-11-05 15:26:11,271 [main] INFO [IntelligenceCorrectionScheduler.java:159]  - [LOG PASS] - query:ºéÂ¥ÃÎ, original query: ºéÂ¥ÃÎ, fixed query: ºìÂ¥ÃÎ
+2015-11-05 15:26:11,272 [main] INFO [IntelligenceCorrectionScheduler.java:132]  - [LOG SUMMARY] - query :ºÉÀ¼ÄÌ·Û
+2015-11-05 15:26:11,272 [main] INFO [URLBuilder.java:102]  - [URLBuilder] - URL: http://10.255.254.71:8390/?st=full&q=%BA%C9%C0%BC%C4%CC%B7%DB&_new_tpl=1&ps=60&um=search_ranking&
+2015-11-05 15:26:11,810 [main] INFO [IntelligenceCorrectionScheduler.java:153]  - [LOG SKIP] - query:ºÉÀ¼ÄÌ·Û, original query: ºÉÀ¼ÄÌ·Û, fixed query: 
+2015-11-05 15:26:11,819 [main] INFO [IntelligenceCorrectionScheduler.java:132]  - [LOG SUMMARY] - query :Á¬ÒÔÈ¹
+2015-11-05 15:26:11,820 [main] INFO [URLBuilder.java:102]  - [URLBuilder] - URL: http://10.255.254.71:8390/?st=full&q=%C1%AC%D2%D4%C8%B9&_new_tpl=1&ps=60&um=search_ranking&
+2015-11-05 15:26:12,218 [main] INFO [IntelligenceCorrectionScheduler.java:159]  - [LOG PASS] - query:Á¬ÒÔÈ¹, original query: Á¬ÒÔÈ¹, fixed query: Á¬ÒÂÈ¹
+2015-11-05 15:26:12,218 [main] INFO [IntelligenceCorrectionScheduler.java:99] ×ÜºÄÊ±:1·ÖÖÓ
+2015-11-05 15:26:12,219 [main] INFO [IntelligenceCorrectionScheduler.java:100]  - [LOG_SUMMARY] - vp: ÖÇÄÜ¾À´í£ºIntelligenceCorrectionScheduler, passed: 6, failed: 0, skiped: 1

@@ -1,0 +1,162 @@
+<html>
+   <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+   <head>
+      <title>回头客广告</title>
+      <style>
+        body{
+            margin:0 auto;
+            width: 80%;
+            font-size: 12px;
+            line-height: 25px;
+        }
+        .pid_info{
+            border: 1px solid #777777;
+            border-collapse: collapse;
+            text-align:center;
+            width: 100%;
+            font-size: 12px;
+            padding: 10px;
+            line-height: 25px;
+        }
+        .frame_width{
+            width: 20%;
+        }
+        .font_bolder{
+            font-size: 15px;
+            font-weight: 800;
+            font-family: 黑体,幼圆,Arial;
+        }
+        .pid_img, .pid_pid, .pid_name, .pid_price, .pid_tip{
+            border-bottom: 1px solid #aaa;
+            text-align:center;
+        }
+        .pid_name{
+            height: 25px;
+            overflow: hidden;
+        }
+        .extend_reco_pid_div{
+            display:inline-block;
+            float: left;
+            border: 1px solid #bbb;
+            width: 280px;
+            margin-top: 10px;
+        }
+        .cart_main_pid{
+            border: 1px solid #222;
+        }
+        .cart_info{
+            display:block;
+        }
+      </style>
+   </head>
+   <body>
+    <div>
+        <form id='input' name="input" method="get" action=""i>
+            <script type="text/javascript">
+            　  var description = new Array();
+            　  description[0] = "<font color='red'>【PC】三个版本都可用 【APP】只能选版本1&2</font>";
+            　  description[1] = "<font color='red'>【PC】版本1只能选首页或其它，2&3都可用 【APP】只能选首页或图书页</font>";
+            　  description[2] = "<font color='red'>【线上】自动填写历史类别和历史品牌 【自填】自己填写</font>";
+            　  description[3] = "<font color='red'> 如果perm_id和cust_id都为空，会随机一个有历史行为的perm_id</font>";
+            　  description[4] = "<font color='red'> 只能填catid，用英文逗号分隔</font>";
+            　  description[5] = "<font color='red'> 填入品牌名，用英文逗号分隔</font>";
+            　  description[6] = "<font color='red'>【PC-版本1】可以填用户性别(男-1，女-2，默认/未知-0) 【PC-版本2&3 + APP】只对图书页生效,可以填当前类别，cid或cpath</font>";
+            </script>
+
+            <label style="display:inline-block;width:70">来源</label>
+            <input type="radio" name="pos_id" value="9" {% if pos_id == "9" %} checked = "checked" {% end %}> PC
+            <input type="radio" name="pos_id" value="209" {% if pos_id == "209" %} checked = "checked" {% end %}> APP <br> 
+
+            <label style="display:inline-block;width:70">版本</label>
+            <input type="radio" name='version' value="1" {% if version == "1" %} checked = "checked" {% end %}> 版本1
+            <input type="radio" name='version' value="2" {% if version == "2" %} checked = "checked" {% end %}> 版本2
+            <input type="radio" name='version' value="3" {% if version == "3" %} checked = "checked" {% end %}> 版本3
+            <label style="display:inline-block;font-size:15px" onmouseover="innerHTML=description[0]" onmouseout="innerHTML='？'"> ？</label> <br>
+
+            <label style="display:inline-block;width:70">页面</label>
+            <input type="radio" name='page_type' value="1" {% if page_type == "1" %} checked = "checked" {% end %}> 首页
+            <input type="radio" name='page_type' value="2" {% if page_type == "2" %} checked = "checked" {% end %}> 图书列表页/单品页
+            <input type="radio" name='page_type' value="0" {% if page_type == "0" %} checked = "checked" {% end %}> 其它
+            <label style="display:inline-block;font-size:15px" onmouseover="innerHTML=description[1]" onmouseout="innerHTML='？'"> ？</label> <br>
+
+            <label style="display:inline-block;width:70">历史数据</label>
+            <input type="radio" name="history" value="1" {% if history == "1" %} checked = "checked" {% end %}> 线上
+            <input type="radio" name="history" value="0" {% if history == "0" %} checked = "checked" {% end %}> 手填
+            <label style="display:inline-block;font-size:15px" onmouseover="innerHTML=description[2]" onmouseout="innerHTML='？'"> ？</label> <br>
+            <hr style="width:280" align="left">
+
+            <label>可以只填一个</label><br>
+            <label style="display:inline-block;width:80">perm_id</label><input type="text" name='perm_id' value="{{perm_id}}">
+            <label style="display:inline-block;font-size:15px" onmouseover="innerHTML=description[3]" onmouseout="innerHTML='？'"> ？</label> <br>
+            <label style="display:inline-block;width:80">cust_id</label><input type="text" name='cust_id' value="{{cust_id}}">
+            <hr style="width:280" align="left">
+
+            <label>以下参数可以不填</label><br>
+            <label style="display:inline-block;width:80">page_no</label><input type="text" name='page_no' value="{{page_no}}"><br>
+            <label style="display:inline-block;width:80">page_size</label><input type="text" name='page_size' value="{{page_size}}"><br>
+            <label style="display:inline-block;width:80">历史类别</label><input type="text" name='cids' value="{{cids}}">
+            <label style="display:inline-block;font-size:15px" onmouseover="innerHTML=description[4]" onmouseout="innerHTML='？'"> ？</label> <br>
+            <label style="display:inline-block;width:80">历史品牌</label><input type="text" name='brand' value="{{brand}}">
+            <label style="display:inline-block;font-size:15px" onmouseover="innerHTML=description[5]" onmouseout="innerHTML='？'"> ？</label> <br>
+            <label style="display:inline-block;width:80">当前类别/性别</label><input type="text" name='cur_cid' value="{{cur_cid}}">
+            <label style="display:inline-block;font-size:15px" onmouseover="innerHTML=description[6]" onmouseout="innerHTML='？'"> ？</label> <br>
+            <hr style="width:280" align="left">
+
+            <script type="text/javascript">
+              function check_size()
+              {
+                document.getElementsByName("page_size")[0].value = Math.max(Math.min(Number(document.getElementsByName("page_size")[0].value), 50), 1) + "";
+              }
+
+              function next_page()
+              {
+                document.getElementsByName("page_no")[0].value = Number(document.getElementsByName("page_no")[0].value) + 1 + "";
+              }
+
+              function pre_page()
+              {
+                document.getElementsByName("page_no")[0].value = Math.max(Number(document.getElementsByName("page_no")[0].value) - 1, 0) + "";
+              }
+
+              function random_permid()
+              {
+                document.getElementsByName("perm_id")[0].value = "";
+              }
+            </script>
+
+            <input type="submit" value="确定" onclick="check_size()">
+            <input type="submit" value="随机" onclick="check_size(),random_permid()">
+            <input type="submit" value="上一页" onclick="check_size(),pre_page()">
+            <input type="submit" value="下一页" onclick="check_size(),next_page()">
+        </form>
+    </div>
+    <hr>
+    <div>
+        <div>
+            <p>total_cnt: {{total_count}} </p>
+        </div>
+    </div>
+    <hr>
+    <div style="margin: 10px 0px;">
+    <table border = "1" class="pid_info">
+        <tr  style="vertical-align: top;">
+            <td class="frame_width" colspan='4' >广告商品信息</td>
+        </tr>
+        <tr>
+            <td class="frame_width">
+            {% for item in ret %}
+              <div class='extend_reco_pid_div'>
+                <div class="pid_img"><img src='{{item["img"]}}'> </div>
+                <div class="pid_pid"><a href="{{item["url"]}}">{{item['pid']}}</a></div>
+                <div class="pid_name" title="{{item['name']}}">{{item['name']}}</div>
+                <div class="pid_tip">{{item['category_path']}}<br> {{item['category_name']}}</div>
+                <div class="pid_price">bid: {{item['bid']}}</div>
+                <div class="pid_cnt">strategy: {{item['strategy']}}</div>
+              </div>
+            {% end %}
+            </td>
+        </tr>
+    </table>
+    </div>
+   </body>
+</html>

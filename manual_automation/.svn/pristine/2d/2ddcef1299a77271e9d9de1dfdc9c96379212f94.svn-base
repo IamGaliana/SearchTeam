@@ -1,0 +1,83 @@
+package com.dangdang;
+
+import java.util.List;
+import java.util.Map;
+
+import org.apache.log4j.Logger;
+import org.apache.log4j.PropertyConfigurator;
+import org.testng.annotations.AfterMethod;
+import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.Test;
+
+import com.dangdang.client.DBAction;
+import com.dangdang.client.URLBuilder;
+import com.dangdang.data.FuncCatePath;
+import com.dangdang.data.FuncQuery;
+
+/**   
+ * @author liuzhipengjs@dangdang.com  
+ * @version 创建时间：2014年11月20日 下午6:06:53  
+ * 类说明  
+ */
+public class Search_stability {
+	
+	private static Logger logger = Logger.getLogger(Search_stability.class);
+	{
+		PropertyConfigurator.configure("conf/stability_log4j.properties");
+	}
+
+	@BeforeMethod
+	public void setup() {
+	}
+
+	@AfterMethod
+	public void clearup() {
+	}
+	
+	@Test(enabled = true)
+	public void searcher_stability() {
+		logger.fatal("searcher_stability");
+		DBAction dba = new DBAction();
+		dba.setFuncCondition("id < 727");
+		List<FuncQuery> querys = dba.getFuncQuery();
+		for(FuncQuery query : querys){
+			Map<String, String> infop = URLBuilder.getPreSearchInfo(query.getFquery());  //获取默认的查询内容
+			logger.fatal("- [ " + query.getFquery() + " ] - "+ "["+infop.get("totalCount").toString()+ "]");
+		}
+	}
+	
+	
+	@Test(enabled = true)
+	public void list_stability() {
+		logger.fatal("list_stability");
+		DBAction dba = new DBAction();
+		dba.setFuncCondition("category_id<4006666 and verify_point !=1");
+		List<FuncCatePath> categorys = dba.getFuncCatePath();
+		for(FuncCatePath category : categorys){
+			Map<String, String> infop = URLBuilder.l_getPreSearchInfo(category.getCat_path());  //获取默认的查询内容
+			logger.fatal("- [ " + category.getFcate_name() + " ] - "+ "["+infop.get("totalCount").toString()+ "]");
+		}
+	}
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+
+}

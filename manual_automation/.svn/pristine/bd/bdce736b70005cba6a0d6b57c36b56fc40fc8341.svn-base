@@ -1,0 +1,53 @@
+package com.dangdang.verifier.querymodify;
+
+import java.net.URLEncoder;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import org.dom4j.Document;
+
+import com.dangdang.client.SearchRequester;
+import com.dangdang.client.URLBuilder;
+import com.dangdang.util.XMLParser;
+
+public class QueryModifyVerify {
+
+	public static boolean verify(Map<String,String> map) throws Exception{
+		Map<String,String> urlMap = new HashMap<String,String>();
+		urlMap.put("st", "full");
+		urlMap.put("um", "search_ranking");
+		urlMap.put("ps", "60");
+		urlMap.put("pg", "1");
+		urlMap.put("_new_tpl", "1");
+		urlMap.put("q", URLEncoder.encode(map.get("query"), "GBK"));
+		//query改写之后的query
+		String test_data=map.get("test_data");
+		
+		String url = URLBuilder.buildURL(urlMap);
+		String xml = SearchRequester.get(url);
+		Document doc = XMLParser.read(xml);
+		String term=XMLParser.term(doc);
+		
+		
+		//去掉term中的逗号
+		String[] termL=term.split(",");
+		term="";
+		for(int i=0;i<termL.length;i++){
+			term+=termL[i];
+		}
+		
+		System.out.println("@@@:"+term);
+		
+		if(test_data.equals(term)){
+			return true;
+		}else{
+			//智能纠错  original_query是query改写之后的query
+			String original_query=XMLParser.getSingleNode(doc, "//original_query");
+			if(test_data.equals(original_query)){
+				return true;
+			}
+			return false;
+		}
+	}
+}

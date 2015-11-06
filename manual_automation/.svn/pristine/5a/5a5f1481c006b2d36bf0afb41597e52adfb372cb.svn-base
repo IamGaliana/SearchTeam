@@ -1,0 +1,23 @@
+# -*- coding: UTF-8 -*-
+__author__ = 'xiyucheng'
+
+from function.email_func import *
+from selenium import webdriver
+
+#ff = webdriver.Firefox()
+#
+#mail_qq(ff)
+
+#url = "https://mail.qq.com/cgi-bin/loginpage"
+#ff.get(url)
+#time.sleep(5)
+#ff.switch_to_frame(mail_loginframe_QQ)
+#ff.find_element_by_xpath(mail_loginname_QQ).send_keys("sdfasdf")
+
+
+
+
+
+
+
+

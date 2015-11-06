@@ -1,0 +1,94 @@
+package com.dangdang.util;
+
+public class Utils {
+	
+	public static void main(String[] args){
+		
+		sendMail("测试邮件标题", "测试邮件内容", "TEXT");
+		
+		
+	}
+	
+	/*
+	 * 自动化测试结果统一邮件
+	 */
+	public static void sendMail(String subject, String content, String format){
+	     MailSenderInfo mailInfo = new MailSenderInfo();      
+//	     mailInfo.setMailServerHost("sl2k8mail-01.dangdang.com"); 
+//	     mailInfo.setMailServerPort("587");      
+	     mailInfo.setValidate(true);      
+//	     mailInfo.setUserName("test_report@dangdang.com"); 
+//	     mailInfo.setPassword("Sl-1234");//您的邮箱密码     
+	     
+	     //Linux服务器无法访问 "sl2k8mail-01.dangdang.com"，所以改用外网
+	     mailInfo.setMailServerHost("smtp.163.com");
+//	     mailInfo.setMailServerPort("25");默认即可
+	     mailInfo.setUserName("zhangruichao64");
+	     mailInfo.setPassword("7788521");
+	     
+//	     mailInfo.setFromAddress("test_report@dangdang.com");
+	     mailInfo.setFromAddress("zhangruichao64@163.com");
+
+	     mailInfo.setToAddress("gaoyanjun@dangdang.com");
+	     //mailInfo.setCcAddress("dongxiaobing@dangdang.com");
+//	     mailInfo.setBccAddress("zhangxiaojingjs@dangdang.com");
+	     
+	     mailInfo.setSubject(subject);      
+	     mailInfo.setContent(content); 
+	     SendMail sms = new SendMail();     
+	     if (format.equals("TEXT")){
+	    	 //发送文体格式   
+	    	 sms.sendTextMail(mailInfo);  
+	     }else if (format.equals("HTML")){
+	    	 //发送html格式
+	    	 sms.sendHtmlMail(mailInfo);
+	     }	     
+	}
+	
+	public static void sendMailDxb(String subject, String content, String format){
+	     MailSenderInfo mailInfo = new MailSenderInfo();      
+	     mailInfo.setMailServerHost("sl2k8mail-01.dangdang.com");      
+	     mailInfo.setMailServerPort("587");      
+	     mailInfo.setValidate(true);      
+	     mailInfo.setUserName("test_report@dangdang.com");      
+	     mailInfo.setPassword("Sl-1234");//您的邮箱密码      
+	     mailInfo.setFromAddress("test_report@dangdang.com");      
+	     mailInfo.setToAddress("dongxiaobing@dangdang.com");
+//	     mailInfo.setCcAddress("zhangruichao@dangdang.com");
+//	     mailInfo.setCcAddress("maoqian@dangdang.com; zhangqiannan@dangdang.com");
+//	     mailInfo.setBccAddress("zhangxiaojingjs@dangdang.com");
+	     mailInfo.setSubject(subject);      
+	     mailInfo.setContent(content); 
+	     SendMail sms = new SendMail();     
+	     if (format.equals("TEXT")){
+	    	 sms.sendTextMail(mailInfo);//发送文体格式     
+	     }else if (format.equals("HTML")){
+	    	 sms.sendHtmlMail(mailInfo);//发送html格式
+	     }	     
+	}
+	
+	/*
+	 * 低通过率用例需要发送预警邮件， added by 高彦君 @2015/06/04
+	 */
+	public static void sendWarningMail(String subject, String content, String format){
+	     MailSenderInfo mailInfo = new MailSenderInfo();      
+	     mailInfo.setValidate(true);      
+	     mailInfo.setMailServerHost("smtp.163.com");
+	     mailInfo.setUserName("zhangruichao64");
+	     mailInfo.setPassword("7788521");
+	     
+	     mailInfo.setFromAddress("zhangruichao64@163.com");
+	     mailInfo.setToAddress("gaoyanjun@dangdang.com");
+
+	     mailInfo.setSubject(subject);      
+	     mailInfo.setContent(content); 
+	     SendMail sms = new SendMail();     
+	     if (format.equals("TEXT")){
+	    	 //发送文体格式
+	    	 sms.sendTextMail(mailInfo);     
+	     }else if (format.equals("HTML")){
+	    	 //发送html格式
+	    	 sms.sendHtmlMail(mailInfo);
+	     }	     
+	}
+}

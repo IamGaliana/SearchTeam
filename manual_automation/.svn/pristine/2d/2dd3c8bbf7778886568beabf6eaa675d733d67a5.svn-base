@@ -1,0 +1,74 @@
+package com.dangdang;
+
+import java.io.Serializable;
+import java.util.Iterator;
+
+import org.apache.log4j.Logger;
+import org.apache.log4j.PropertyConfigurator;
+import org.testng.Assert;
+import org.testng.annotations.Test;
+
+import bsh.This;
+
+/**   
+ * @author liuzhipengjs@dangdang.com  
+ * @version 创建时间：2014年11月4日 下午3:05:45  
+ * 类说明  
+ */
+public class Test001 implements Serializable{  
+	  
+    /**
+	 * 
+	 */
+	private static final long serialVersionUID = 1981281469253095203L;
+	
+	private static Logger logger = Logger.getLogger(Test001.class);
+    {
+    	PropertyConfigurator.configure("conf/testlog4j.properties");
+    }
+  
+    /** 
+     * @param args 
+     */
+    @Test(enabled=false)
+    public void testlog4j() { 
+    	
+        // System.out.println("This is println message.");  
+        // 记录debug级别的信息  
+        logger.debug("This is debug message.");  
+        // 记录info级别的信息  
+        logger.debug("This is info message.");  
+        // 记录error级别的信息  
+        logger.error("This is error message.");  
+        
+        
+    }
+    
+    
+    @Test
+    public void test02(){
+    	
+    	int a = Integer.parseInt("123");
+    	
+    	Integer b = Integer.valueOf("123");
+    	int c = b;
+    	Assert.assertEquals(a, c);
+    	
+    }
+    
+    
+    
+    public static void main(String[] args){
+    	System.out.println("123");
+    }
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+}  
