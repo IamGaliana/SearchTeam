@@ -1,2 +1,4 @@
 This is the first try at mygit.
 second line.
+
+error line, let's remove it.
