@@ -1,0 +1,598 @@
+package com.dangdang;
+
+import java.io.UnsupportedEncodingException;
+import java.lang.reflect.Method;
+import java.net.MalformedURLException;
+import java.net.URLDecoder;
+import java.net.URLEncoder;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Random;
+
+import org.dom4j.DocumentException;
+import org.dom4j.Node;
+import org.slf4j.LoggerFactory;
+import org.testng.annotations.AfterMethod;
+import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.Test;
+
+import ch.qos.logback.core.encoder.Encoder;
+
+import com.dangdang.client.SearchRequester;
+import com.dangdang.client.URLBuilder;
+import com.dangdang.data.FuncQuery;
+import com.dangdang.data.FuncVP;
+import com.dangdang.util.Calculator;
+import com.dangdang.util.Utils;
+import com.dangdang.util.XMLParser;
+
+/**
+ * @author gaoyanjun@dangdang.com
+ * @version 
+ */
+public class IndexAddScheduler {
+	private final static org.slf4j.Logger logger = LoggerFactory.getLogger(IndexAddScheduler.class);
+
+	private static List<String> ProductIdList = new ArrayList<String>();
+	
+	@BeforeMethod
+	public void setup() {
+	}
+
+	@AfterMethod
+	public void clearup() {
+		logger.info("start to clear up...");
+		try {
+			IndexDataHandler.ClearUpTestData(ProductIdList);
+		} catch (MalformedURLException e) {
+			logger.error(" - function [IndexAddScheduler] - clear up test data failed");
+			e.printStackTrace();
+		} catch (DocumentException e) {
+			logger.error(" - function [IndexAddScheduler] - clear up test data failed");
+			e.printStackTrace();
+		}
+		logger.info("finished...");
+	}
+
+	@SuppressWarnings({ "unchecked", "rawtypes" })
+	@Test(enabled = true)
+	public void Test() throws MalformedURLException, DocumentException{
+		long d1 = System.currentTimeMillis() ;
+		String subject = "【搜索后台自动化测试】基础功能回归测试结果";
+		StringBuffer content = new StringBuffer();
+		content.append("<html><head><meta http-equiv=Content-Type content='text/html; charset=utf-8'></head><body><table border=1 cellspacing=0 cellpadding=0><tr><th>功能模块</th><th>通过query</th><th>失败query</th><th>跳过query</th><th>总计</th><th>耗时</th></tr>");
+		
+		// 增加脚本低通过率预警邮件内容，modified by 高彦君 @ 205/06/04 
+		String warnSubject = "【搜索后台自动化测试】预警！脚本通过率低";
+		StringBuffer warnContent = new StringBuffer();
+		warnContent.append("<html><head><meta http-equiv=Content-Type content='text/html; charset=utf-8'></head><body><table border=1 cellspacing=0 cellpadding=0><tr><th>功能模块</th><th>通过query</th><th>失败query</th><th>跳过query</th><th>总计</th><th>实际通过率</th><th>预期通过率</th></tr>");
+		boolean doSendWarnMail = false;
+		
+		try{
+			// 通过反射调用本类中的方法，除了下边过滤掉的四个，每个方法返回结果是一样的(result)map形式，包含通过、失败、跳过条数，以及方法名称
+			IndexAddScheduler addScheduler = new IndexAddScheduler();
+			Class c = addScheduler.getClass();
+			Method[] methods = c.getDeclaredMethods();
+			Map<String, String> result = new HashMap<String, String>();
+			for(Method method : methods){
+				try{
+					if(method.getName().equals("IndexAdd") ||
+							method.getName().equals("setup") ||
+							method.getName().equals("clearup") ||
+							method.getName().equals("Test"))
+						continue;
+					else
+						result =(Map<String, String>)method.invoke(addScheduler);
+				}catch(Exception e){
+					logger.error("failed when casting Object to Map<String,String> in reflection");
+					return;
+				}
+				
+				logger.info(String.format(" - [LOG_SUMMARY] - vp: %s, passed: %s, failed: %s, skiped: %s", 
+						result.get("methodname"),  result.get("passed"), result.get("failed"), result.get("skipped")));
+				long d2 = System.currentTimeMillis();
+				String d3 = Math.ceil((d2-d1)/60000.0)+"分钟";
+				int total = Integer.parseInt(result.get("passed")) + Integer.parseInt(result.get("failed")) + Integer.parseInt(result.get("skipped"));
+				content.append(String.format("<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>", 
+						result.get("methodname"), result.get("passed"), result.get("failed"), result.get("skipped"), 
+						((Integer)(total)).toString(), d3));
+				
+				// 增加脚本低通过率预警邮件内容，计算实际通过率，与fvp.minpassrate比较后决定是否发送邮件，modified by 高彦君 @ 205/06/04 
+				double actualPassrate = Calculator.passrate(Integer.parseInt(result.get("passed")),total);
+				double expectedPassrate = 90.0;
+				// 如果通过率比预期的低，发送邮件
+				if(actualPassrate < expectedPassrate){
+					warnContent.append(String.format("<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>", 
+							result.get("methodname"), result.get("passed"), result.get("failed"), result.get("skipped"), 
+							((Integer)(total)).toString(), actualPassrate + "%", expectedPassrate + "%"));
+					doSendWarnMail = true;
+				}
+			}
+			
+		}catch(Exception e){
+			logger.error("failed when executing reflection");
+			e.printStackTrace();
+			return;
+		}
+		
+		content.append("</table></body></html>");
+		Utils.sendMail(subject, content.toString(), "HTML");
+		
+		// 增加脚本低通过率预警邮件内容，modified by 高彦君 @ 205/06/04
+		if (doSendWarnMail){
+			warnContent.append("</table></body></html>");
+			Utils.sendWarningMail(warnSubject, warnContent.toString(), "HTML");
+		}
+		
+	}
+	
+	/**
+	 * 正常增加索引 - Int类型字段
+	 * @throws DocumentException 
+	 * @throws MalformedURLException 
+	 */
+	public Map<String, String> NormalIndexAddIntType() throws MalformedURLException, DocumentException {
+		Map<String, String> intTypeColumns = new HashMap<String, String>();
+		intTypeColumns.put("stock_status", "2");
+		intTypeColumns.put("city_stock_status", "2213906211");
+		intTypeColumns.put("display_status", "0");
+		intTypeColumns.put("num_images", "10");
+		intTypeColumns.put("shop_id", "0");
+		intTypeColumns.put("icon_flag_mall_new", "0");
+		
+		intTypeColumns.put("is_publication", "1");
+		intTypeColumns.put("total_review_count", "1000");
+		intTypeColumns.put("score", "8");
+		intTypeColumns.put("product_medium", "0");
+		intTypeColumns.put("promotion_filt", "102");
+		
+		intTypeColumns.put("is_dd_sell", "1");
+		intTypeColumns.put("is_overseas", "0");
+		intTypeColumns.put("brand_id", "7907");
+		intTypeColumns.put("sale_week", "10");
+		intTypeColumns.put("sale_week_amt", "20");
+		intTypeColumns.put("activity_type", "52");
+		
+		intTypeColumns.put("is_has_ebook", "1");
+		intTypeColumns.put("ebook_product_id", "123456789");
+		intTypeColumns.put("is_show", "2");
+		intTypeColumns.put("item_count", "5");
+		intTypeColumns.put("spu_id", "456789");
+		
+		Map<String, String> ret = new HashMap<String, String>();
+		int times = 10;
+		int passed =0 , failed = 0, skipped = 0;
+		while(times > 0){
+			int rt = IndexAdd(intTypeColumns,"normal");
+			switch(rt){
+			case 0:
+				passed += 1;
+				break;
+			case -1:
+				failed += 1;
+				break;
+			case -2:
+				skipped += 1;
+				break;
+			default:
+				failed += 1;							
+			}
+			times--;
+		}
+		ret.put("passed", ((Integer)passed).toString());
+		ret.put("failed", ((Integer)failed).toString());
+		ret.put("skipped", ((Integer)skipped).toString());
+		ret.put("methodname", "NormalIndexAdd-IntType");
+		return ret;
+	}
+	
+	/**
+	 * 强制增加索引，Int类型字段
+	 * @throws DocumentException 
+	 * @throws MalformedURLException 
+	 */	
+	public Map<String, String> ForceIndexAddIntType() throws MalformedURLException, DocumentException{
+		Map<String, String> intTypeColumns = new HashMap<String, String>();
+		intTypeColumns.put("stock_status", "2");
+		intTypeColumns.put("city_stock_status", "2213906211");
+		intTypeColumns.put("display_status", "0");
+		intTypeColumns.put("num_images", "10");
+		intTypeColumns.put("shop_id", "0");
+		intTypeColumns.put("icon_flag_mall_new", "0");
+		
+		intTypeColumns.put("is_publication", "1");
+		intTypeColumns.put("total_review_count", "1000");
+		intTypeColumns.put("score", "8");
+		intTypeColumns.put("product_medium", "0");
+		intTypeColumns.put("promotion_filt", "102");
+		
+		intTypeColumns.put("is_dd_sell", "1");
+		intTypeColumns.put("is_overseas", "0");
+		intTypeColumns.put("brand_id", "7907");
+		intTypeColumns.put("sale_week", "10");
+		intTypeColumns.put("sale_week_amt", "20");
+		intTypeColumns.put("activity_type", "52");
+		
+		intTypeColumns.put("is_has_ebook", "1");
+		intTypeColumns.put("ebook_product_id", "123456789");
+		intTypeColumns.put("is_show", "2");
+		intTypeColumns.put("item_count", "5");
+		intTypeColumns.put("spu_id", "456789");		
+		
+		Map<String, String> ret = new HashMap<String, String>();
+		int times = 10;
+		int passed =0 , failed = 0, skipped = 0;
+		while(times > 0){
+			int rt = IndexAdd(intTypeColumns,"force");
+			switch(rt){
+			case 0:
+				passed += 1;
+				break;
+			case -1:
+				failed += 1;
+				break;
+			case -2:
+				skipped += 1;
+				break;
+			default:
+				failed += 1;							
+			}
+			times--;
+		}
+		ret.put("passed", ((Integer)passed).toString());
+		ret.put("failed", ((Integer)failed).toString());
+		ret.put("skipped", ((Integer)skipped).toString());
+		ret.put("methodname", "ForceIndexAdd-IntType");
+		return ret;
+	}
+	
+	/**
+	 * 正常增加索引 字符串类型字段
+	 * @throws MalformedURLException
+	 * @throws DocumentException
+	 */	
+	public Map<String,String> NormalIndexAddStringType() throws MalformedURLException, DocumentException {		
+		Map<String, String> strTypeColumns = new HashMap<String, String>();
+		strTypeColumns.put("product_name", "test_product_name");
+		strTypeColumns.put("cat_paths", "01.32.04.07.00.00");
+		strTypeColumns.put("subname", "test_sub_name");
+		strTypeColumns.put("attrib", "1000386:1-1000150:30-1000150:33-1000012:4-1000247:10");
+		try {
+			strTypeColumns.put("title_primary", URLEncoder.encode("桃李春风总关情|-《诗经》中的古老爱情", "GBK"));
+		} catch (UnsupportedEncodingException e) {
+			logger.error("title_primary encoding error");
+		}
+		
+		Map<String, String> ret = new HashMap<String, String>();
+		int times = 10;
+		int passed =0 , failed = 0, skipped = 0;
+		while(times > 0){
+			int rt = IndexAdd(strTypeColumns,"normal");
+			switch(rt){
+			case 0:
+				passed += 1;
+				break;
+			case -1:
+				failed += 1;
+				break;
+			case -2:
+				skipped += 1;
+				break;
+			default:
+				failed += 1;							
+			}
+			times--;
+		}
+		ret.put("passed", ((Integer)passed).toString());
+		ret.put("failed", ((Integer)failed).toString());
+		ret.put("skipped", ((Integer)skipped).toString());
+		ret.put("methodname", "NormalIndexAdd-StringType");
+		return ret;
+	}
+	
+	/**
+	 * 强制增加索引 字符串类型字段
+	 * @throws MalformedURLException
+	 * @throws DocumentException
+	 */	
+	public Map<String, String> ForceIndexAddStringType() throws MalformedURLException, DocumentException {
+		Map<String, String> strTypeColumns = new HashMap<String, String>();
+		strTypeColumns.put("product_name", "force_test_product_name");
+		strTypeColumns.put("cat_paths", "01.32.04.07.00.00");
+		strTypeColumns.put("subname", "force_test_sub_name");
+		strTypeColumns.put("attrib", "1000386:1-1000150:30-1000150:33-1000012:4-1000247:10");
+		try {
+			strTypeColumns.put("title_primary", URLEncoder.encode("桃李春风总关情|-《诗经》中的古老爱情", "GBK"));
+		} catch (UnsupportedEncodingException e) {
+			logger.error("title_primary encoding error");
+		}
+				
+		Map<String, String> ret = new HashMap<String, String>();
+		int times = 10;
+		int passed =0 , failed = 0, skipped = 0;
+		while(times > 0){
+			int rt = IndexAdd(strTypeColumns,"force");
+			switch(rt){
+			case 0:
+				passed += 1;
+				break;
+			case -1:
+				failed += 1;
+				break;
+			case -2:
+				skipped += 1;
+				break;
+			default:
+				failed += 1;							
+			}
+			times--;
+		}
+		ret.put("passed", ((Integer)passed).toString());
+		ret.put("failed", ((Integer)failed).toString());
+		ret.put("skipped", ((Integer)skipped).toString());
+		ret.put("methodname", "ForceIndexAdd-StringType");
+		return ret;
+	}
+	
+	/**
+	 * 正常增加索引 数字类型字段
+	 */
+	public Map<String, String> NormalIndexAddNumType() throws MalformedURLException, DocumentException {
+		Map<String, String> numTypeColumns = new HashMap<String, String>();
+		numTypeColumns.put("activity_price", "30000");
+		numTypeColumns.put("price", "60050");
+		numTypeColumns.put("dd_sale_price", "35000");
+		numTypeColumns.put("exclusive_price", "29800");		
+		numTypeColumns.put("promo_saleprice", "29650");	
+						
+		Map<String, String> ret = new HashMap<String, String>();
+		int times = 10;
+		int passed =0 , failed = 0, skipped = 0;
+		while(times > 0){
+			int rt = IndexAdd(numTypeColumns,"normal");
+			switch(rt){
+			case 0:
+				passed += 1;
+				break;
+			case -1:
+				failed += 1;
+				break;
+			case -2:
+				skipped += 1;
+				break;
+			default:
+				failed += 1;							
+			}
+			times--;
+		}
+		ret.put("passed", ((Integer)passed).toString());
+		ret.put("failed", ((Integer)failed).toString());
+		ret.put("skipped", ((Integer)skipped).toString());
+		ret.put("methodname", "NormalIndexAdd-NumType");
+		return ret;
+	}
+	 
+	/**
+	 * 强制增加索引 数字类型字段
+	 */
+	public Map<String, String> ForceIndexAddNumType() throws MalformedURLException, DocumentException {
+		Map<String, String> numTypeColumns = new HashMap<String, String>();
+		numTypeColumns.put("activity_price", "30000");
+		numTypeColumns.put("price", "60050");
+		numTypeColumns.put("dd_sale_price", "35000");
+		numTypeColumns.put("exclusive_price", "29800");		
+		numTypeColumns.put("promo_saleprice", "29650");	
+						
+		Map<String, String> ret = new HashMap<String, String>();
+		int times = 10;
+		int passed =0 , failed = 0, skipped = 0;
+		while(times > 0){
+			int rt = IndexAdd(numTypeColumns,"force");
+			switch(rt){
+			case 0:
+				passed += 1;
+				break;
+			case -1:
+				failed += 1;
+				break;
+			case -2:
+				skipped += 1;
+				break;
+			default:
+				failed += 1;							
+			}
+			times--;
+		}
+		ret.put("passed", ((Integer)passed).toString());
+		ret.put("failed", ((Integer)failed).toString());
+		ret.put("skipped", ((Integer)skipped).toString());
+		ret.put("methodname", "ForceIndexAdd-NumType");
+		return ret;
+	}
+	
+	/**
+	 * 正常增加索引 时间类型字段
+	 * @throws MalformedURLException
+	 * @throws DocumentException
+	 */	
+	public Map<String, String> NormalIndexAddDateType() throws MalformedURLException, DocumentException {
+		Map<String, String> dateTypeColumns = new HashMap<String, String>();
+		dateTypeColumns.put("activity_begin_time", "2015-07-04 01:00:00");
+		dateTypeColumns.put("activity_end_time", "2016-07-04 01:00:00");
+		dateTypeColumns.put("exclusive_begin_date", "2015-08-04 12:00:00");
+		dateTypeColumns.put("exclusive_end_date", "2016-08-04 12:00:00");
+		
+		dateTypeColumns.put("promo_start_date", "2015-06-05 01:00:00");
+		dateTypeColumns.put("promo_end_date", "2016-09-05 02:00:00");
+		dateTypeColumns.put("first_input_date", "2013-08-06 12:00:00");
+		dateTypeColumns.put("action_start_date", "2012-01-01 12:00:00");
+		dateTypeColumns.put("action_end_date", "2016-01-01 12:00:00");		
+		
+		Map<String, String> ret = new HashMap<String, String>();
+		int times = 10;
+		int passed =0 , failed = 0, skipped = 0;
+		while(times > 0){
+			int rt = IndexAdd(dateTypeColumns,"normal");
+			switch(rt){
+			case 0:
+				passed += 1;
+				break;
+			case -1:
+				failed += 1;
+				break;
+			case -2:
+				skipped += 1;
+				break;
+			default:
+				failed += 1;							
+			}
+			times--;
+		}
+		ret.put("passed", ((Integer)passed).toString());
+		ret.put("failed", ((Integer)failed).toString());
+		ret.put("skipped", ((Integer)skipped).toString());
+		ret.put("methodname", "NormalIndexAdd-DateType");
+		return ret;
+	}
+	
+	/**
+	 * 强制增加索引 时间类型字段
+	 * @throws MalformedURLException
+	 * @throws DocumentException
+	 */
+	public Map<String, String> ForceIndexAddDateType() throws MalformedURLException, DocumentException {
+		Map<String, String> dateTypeColumns = new HashMap<String, String>();
+		dateTypeColumns.put("activity_begin_time", "2015-07-04 01:00:00");
+		dateTypeColumns.put("activity_end_time", "2016-07-04 01:00:00");
+		dateTypeColumns.put("exclusive_begin_date", "2015-08-04 12:00:00");
+		dateTypeColumns.put("exclusive_end_date", "2016-08-04 12:00:00");
+		
+		dateTypeColumns.put("promo_start_date", "2015-06-05 01:00:00");
+		dateTypeColumns.put("promo_end_date", "2016-09-05 02:00:00");
+		dateTypeColumns.put("first_input_date", "2013-08-06 12:00:00");
+		dateTypeColumns.put("action_start_date", "2012-01-01 12:00:00");
+		dateTypeColumns.put("action_end_date", "2016-01-01 12:00:00");		
+				
+		Map<String, String> ret = new HashMap<String, String>();
+		int times = 10;
+		int passed =0 , failed = 0, skipped = 0;
+		while(times > 0){
+			int rt = IndexAdd(dateTypeColumns,"force");
+			switch(rt){
+			case 0:
+				passed += 1;
+				break;
+			case -1:
+				failed += 1;
+				break;
+			case -2:
+				skipped += 1;
+				break;
+			default:
+				failed += 1;							
+			}
+			times--;
+		}
+		ret.put("passed", ((Integer)passed).toString());
+		ret.put("failed", ((Integer)failed).toString());
+		ret.put("skipped", ((Integer)skipped).toString());
+		ret.put("methodname", "ForceIndexAdd-DateType");
+		return ret;
+	}
+	
+	/**
+	 * 增加索引共用方法
+	 * @param columnMap		字段&字段值列表
+	 * @throws MalformedURLException
+	 * @throws DocumentException
+	 */
+	private int IndexAdd(Map<String, String> columnMap, String mode) throws MalformedURLException, DocumentException{
+		// case是否通过
+		boolean isPass = true;
+		// 新增单品进索引的请求是否返回成功
+		boolean addSuccess = false;
+		
+		// 随机造一个不存在的pid
+		Random random = new Random();
+		int randomPID = random.nextInt(Integer.MAX_VALUE);
+		String pid = Integer.toString(randomPID);		
+		
+		// 获取指定模块的fulltm和incnum
+		Map<String, String> FulltmAndIncNum = new HashMap<String, String>();
+		
+		// 调用http://10.255.254.188:8390/?product_id=pid,确定该品在索引中不存在
+		List<Node> PidNode = URLBuilder.porductSearch(pid, false);
+		
+		// 不存在随机生成的pid，则使用API写入
+		if(PidNode.isEmpty()){
+			// 公共变量，clear up时用
+			ProductIdList.add(pid);
+			
+			// 调用增加索引API，columnMap是新品的某些属性和值，比如product_name=test;stock_status=1等；FulltmAndIncNum是目前searcher的时间戳和增量数字
+			Map<String, String> paramMap = new HashMap<String, String>();
+			paramMap.put("product_id", pid);
+			paramMap.putAll(columnMap);					
+			paramMap.put("_index_add", "1");
+			
+			// 强制增加索引，多一个_force_update参数,且没有时间戳和inc num参数
+			if(mode.equals("force")){
+				paramMap.put("_force_update", "1");
+			}else{
+				FulltmAndIncNum = IndexDataHandler.GetFulltmAndIncNum("searcher");
+				paramMap.putAll(FulltmAndIncNum);	
+			}
+			
+			// 发送请求
+			String url = URLBuilder.buildUrl(paramMap);
+			url = url.replaceAll(" ", "%20");
+			String ret = SearchRequester.get(url);
+			if(ret.contains("OK")){
+				addSuccess = true;
+				logger.info(String.format("add API request returns 'OK', pid - [%s] ", pid));
+			}else{
+				isPass = false;
+				logger.error(String.format("add API request returns '[%s]', pid - [%s] ", ret, pid));
+			}
+			
+			// 验证：通过单品接口，找到被添加的单品，遍历被设置的字段，比较人工设置的值和接口返回的是否相同
+			if(addSuccess){
+				List<Node> newPidNode = URLBuilder.porductSearch(pid, false);
+				if(newPidNode.isEmpty()){
+					isPass = false;
+					logger.error(String.format("add API request was succeeded, but did not find pid [ %s ] in index!", pid));
+				}else{
+					for(Entry<String, String> entry: columnMap.entrySet()){
+						String expectedName = entry.getKey();
+						String expectedValue = null;
+						try {
+							expectedValue = URLDecoder.decode(entry.getValue(), "GBK");
+						} catch (UnsupportedEncodingException e1) {
+							logger.error("decoding error when transfer" + expectedValue + "into GBK");
+						}
+						String actualValue = XMLParser.prodSpecifiedAttrib(newPidNode.get(0), expectedName);
+						if(expectedValue.trim().equals(actualValue.trim()))
+							logger.info(String.format("pid [ %s] , attribute [%s], value is [%s]!", pid, expectedName, expectedValue));
+						else{
+							isPass = false;
+							logger.error(String.format("add pid [ %s ] in index, but attribute [%s]'s value is not correct, actual is [%s], expected is [%s]!", pid, expectedName, actualValue, expectedValue));
+						}	
+					}
+				}
+			}
+			
+			if(isPass){
+				logger.info(String.format(" - [LOG_SUCCESS] - normal add method was succeed - add pid %s into index successfully", pid));
+				return 0;
+			}else{
+				logger.error(String.format(" - [LOG_FAILED] - normal add method was failed - add pid %s into index failed", pid));
+				return -1;
+				}
+		}else{
+			logger.info(String.format("pid [%s] already exists in index", pid));
+			return -2;
+		}
+	}
+}

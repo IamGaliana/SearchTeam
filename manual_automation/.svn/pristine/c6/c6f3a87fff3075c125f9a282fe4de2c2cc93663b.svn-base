@@ -1,0 +1,81 @@
+#encoding:utf8
+#from fg_func import CommonFunctions
+import sys
+from fg_func import adsystem_common
+import time
+from conf import pages_elements
+import random
+
+def test_get_table_row_and_column():
+    action = adsystem_common.AdSystemCommon('chrome')
+    action.login()
+    #action.goto("http://adsmart.dangdang.com/cost.php?c=cpcnew&tab=ad&start=2014-07-01&end=2015-07-06")
+    action.goto("http://adsmart.dangdang.com/cost.php?c=cpcnew&tab=ad&start=2015-07-08&end=2015-07-08")
+    print action.get_table_row_num("xpath->//table[@class='table']")
+    print action.get_table_column_num("xpath->//table[@class='table']")
+    a = action.table_row_content("xpath->//table[@class='table']")
+    for i in xrange(len(a)):
+        print "table_row:", i, a[i]
+    #print "table_first_row:", a[0]
+    b = action.table_column_content("xpath->//table[@class='table']")
+    for i in xrange(len(b)):
+        print "table_column:", i, b[i]
+    #print "table_first_column:", b[0]
+    action.quit()
+
+def test_get_list_row_and_column():
+    action = adsystem_common.AdSystemCommon('chrome')
+    action.login()
+    action.goto("http://adsmart.dangdang.com/ads.cpc.php")
+    #print "list_row_num: ", action.get_list_row_num("xpath->.//*[@id='form_ads']")
+    #print "list_column_num: ", action.get_list_column_num("xpath->//ul[@class='title']")
+    a = action.list_row_content("xpath->.//*[@id='form_ads']")
+    for i in xrange(len(a)):
+        print "list_row:", i, a[i]
+    print "list_first_row:", a[0]
+    b = action.list_column_content("xpath->.//*[@id='form_ads']")
+    for i in xrange(len(b)):
+        print "list_column:", i, b[i]
+    print "list_first_column:", b[0]
+    action.quit()
+
+def test_create_group():
+    action = adsystem_common.AdSystemCommon('chrome')
+    action.create_cpc_adgroup_old()
+
+def test_create_personal_ad():
+    action = adsystem_common.AdSystemCommon('chrome')
+    action.create_personal_ad()
+
+def test_select():
+    action = adsystem_common.AdSystemCommon('chrome')
+    action.login()
+    action.goto("http://adsmart.dangdang.com/ads.cpc.php")
+    action.select("xpath->.//*[@id='pos_id']/option", u"回头客推广位")
+    action.click("xpath->.//*[@id='btn_gid']")
+
+def test_checkbox():
+    action = adsystem_common.AdSystemCommon('chrome')
+    action.login()
+    action.goto("http://adsmart.dangdang.com/ads.cpc.php")
+    action.checkbox()[0].click()
+
+def test_a_click():
+    action = adsystem_common.AdSystemCommon('chrome')
+    action.login()
+    action.goto("http://adsmart.dangdang.com/ads.cpc.products.php?pos_type=9")
+    random.choice(action.a_in_list("xpath->//li//a", "推广")).click()
+    #action.get_a_in_list("xpath->//li//a", "推广")[0].click()
+    action.click("xpath->.//*[@id='btn_submit']")
+    print action.get_text_from_alert()
+    action.quit()
+
+
+if __name__ == "__main__":
+    #test_get_table_row_and_column()
+    #test_get_list_row_and_column()
+    #test_create_group()
+    test_create_personal_ad()
+    #test_select()
+    #test_checkbox()
+    #test_a_click()

@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<session version="1.0">
+<refactoring comment="Move element &apos;SendMail.java&apos; to &apos;JavaSeriesDemo/src/Email&apos;&#x0D;&#x0A;- Original project: &apos;JavaSeriesDemo&apos;&#x0D;&#x0A;- Destination element: &apos;JavaSeriesDemo/src/Email&apos;&#x0D;&#x0A;- Original element: &apos;SendMail.java&apos;&#x0D;&#x0A;- Update references to refactored element" description="Move compilation unit" destination="/src&lt;Email" element1="/src&lt;{SendMail.java" files="0" flags="589830" folders="0" id="org.eclipse.jdt.ui.move" policy="org.eclipse.jdt.ui.moveResources" qualified="false" references="true" stamp="1419936583845" units="1" version="1.0"/>
+</session>

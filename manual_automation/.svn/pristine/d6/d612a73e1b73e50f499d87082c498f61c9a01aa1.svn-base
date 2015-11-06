@@ -1,0 +1,126 @@
+package com.dangdang.verifier.cateforecast;
+
+import java.net.MalformedURLException;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Random;
+import java.util.SortedMap;
+
+import org.apache.commons.lang3.StringUtils;
+import org.apache.log4j.Logger;
+import org.dom4j.Document;
+import org.dom4j.DocumentException;
+import org.dom4j.Node;
+import org.jfree.util.Log;
+
+import com.dangdang.client.RPCClient;
+import com.dangdang.client.SearchRequester;
+import com.dangdang.client.URLBuilder;
+import com.dangdang.data.FuncQuery;
+import com.dangdang.util.Config;
+import com.dangdang.util.XMLParser;
+
+/**
+ * 对分类反馈过滤机制进行验证
+ * 
+ * @author zhangxiaojing
+ * 
+ */
+public class CategoryFeedbackFilterVerifier {
+	//日志记录
+	public static  Logger logger = Logger.getLogger(CategoryFeedbackFilterVerifier.class);
+	
+	public static boolean Verify(FuncQuery query){
+		//得到Query词
+		String sourceQuery = query.getFquery();
+			//构造url的参数map
+			Map<String,String> urlMap = new HashMap<String,String>();
+			urlMap.put("st", "full");
+			urlMap.put("um", "search_ranking");
+			urlMap.put("_new_tpl", "1");
+			urlMap.put("q",sourceQuery);
+			//访问后台，得到返回的xml结果
+			String url = URLBuilder.buildUrl(urlMap);
+			String xml = SearchRequester.get(url);
+			
+			try {
+				Document doc = XMLParser.read(xml);
+				List<Node> pathList = XMLParser.pathInfo(doc);
+				if(pathList!=null){
+					//验证是否为分类直达(是否包含(result\StatInfo\Path节点)
+					if(pathList.size()==0){
+						//如果不是分类直达，则获取搜索结果中前三个第一分类反馈类的商品节点
+						List<Node> productList = getFirstFeedbackProducts(sourceQuery,doc);
+						for(Node product:productList){
+							//图书分类，cat_paths 为01开头(result\Body\Product\cat_paths)
+							if(XMLParser.product_catelogPath(product).trim().startsWith("01")){
+								//不是招商品
+								if(!XMLParser.product_shopID(product).trim().endsWith("0")){
+									logger.error("the first 3 feedback poduct "+XMLParser.product_id(product)+"'s shop id should be 0! ");
+									return false;
+								}
+							}
+							//验证三个商品不是区域有货或缺货，stock_status=0(result\Body\Product\stock_status)
+							if(!XMLParser.product_StockStatus(product).trim().equals("0")){
+								logger.error("the first 3 feedback poduct "+XMLParser.product_id(product)+"'s stock status should be 0! ");
+								return false;
+							}
+						}
+					}
+				}
+			} catch (MalformedURLException | DocumentException e) {
+				e.printStackTrace();
+				return false;
+			}	
+	
+	    logger.fatal(" - [LOG_SUCCESS] - "+"Test Successed! Query:"+sourceQuery);
+		return true;
+	}	
+	
+	private static List<Node> getFirstFeedbackProducts(String query,Document doc){	
+		List<Node> list = new ArrayList<Node>();
+        //获取第一反馈分类
+		String fistFeedbackCate = getFirstFeedbackCate(query);
+		if(fistFeedbackCate==null){
+			logger.fatal("the fist feedback category if "+query+" is null!");
+			return list;
+		}
+		List<Node> productList = XMLParser.getProductNodes(doc);
+		for(Node product:productList){
+			if(XMLParser.product_catelogPath(product).contains(fistFeedbackCate)){
+				list.add(product);
+				if(list.size()==3){//获取搜索结果中前三个第一分类反馈类的商品节点
+					return list;
+				}
+			}
+		}
+		return list;			
+	}
+	
+	private static String getFirstFeedbackCate(String query){
+		SortedMap<String,Double> sourceCatePath = RPCClient.getCategoryPriority(query);
+		List<Map.Entry<String, Double>> sortlist = new LinkedList<Map.Entry<String,Double>>(sourceCatePath.entrySet());
+		//对Map进行排序
+		Collections.sort( sortlist, new Comparator<Map.Entry<String,Double>>()  
+			        {  
+			            //重写比较方法，进行值比对
+			            public int compare( Map.Entry<String,Double> o1, Map.Entry<String, Double> o2 )  
+			            {  
+			                return (o2.getValue()).compareTo( o1.getValue());  
+			            }  
+			        });  
+		if(sortlist.size()>0){
+			return sortlist.get(0).getKey();
+		}
+		return null;
+	}
+	
+}

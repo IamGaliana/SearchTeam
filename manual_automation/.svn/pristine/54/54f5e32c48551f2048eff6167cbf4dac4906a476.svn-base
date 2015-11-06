@@ -1,0 +1,746 @@
+package com.dangdang;
+
+import java.io.UnsupportedEncodingException;
+import java.lang.reflect.Method;
+import java.net.MalformedURLException;
+import java.net.URLDecoder;
+import java.net.URLEncoder;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Random;
+
+import org.dom4j.DocumentException;
+import org.dom4j.Node;
+import org.slf4j.LoggerFactory;
+import org.testng.annotations.AfterMethod;
+import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.Test;
+
+import com.dangdang.client.SearchRequester;
+import com.dangdang.client.URLBuilder;
+import com.dangdang.util.Calculator;
+import com.dangdang.util.Utils;
+import com.dangdang.util.XMLParser;
+
+/**
+ * @author gaoyanjun@dangdang.com
+ * @version 
+ */
+public class IndexModifyScheduler {
+	private final static org.slf4j.Logger logger = LoggerFactory.getLogger(IndexModifyScheduler.class);
+
+	private static List<String> ProductIdList = new ArrayList<String>();
+	
+	@BeforeMethod
+	public void setup() {
+	}
+
+	@AfterMethod
+	public void clearup() {
+		logger.info("start to clear up...");
+		try {
+			IndexDataHandler.ClearUpTestData(ProductIdList);
+		} catch (MalformedURLException e) {
+			logger.error(" - function [IndexAddScheduler] - clear up test data failed");
+			e.printStackTrace();
+		} catch (DocumentException e) {
+			logger.error(" - function [IndexAddScheduler] - clear up test data failed");
+			e.printStackTrace();
+		}
+		logger.info("finished...");
+	}
+
+	@SuppressWarnings({ "unchecked", "rawtypes" })
+	@Test(enabled = true)
+	public void Test() throws MalformedURLException, DocumentException{
+		long d1 = System.currentTimeMillis() ;
+		String subject = "【搜索后台自动化测试】基础功能回归测试结果";
+		StringBuffer content = new StringBuffer();
+		content.append("<html><head><meta http-equiv=Content-Type content='text/html; charset=utf-8'></head><body><table border=1 cellspacing=0 cellpadding=0><tr><th>功能模块</th><th>通过query</th><th>失败query</th><th>跳过query</th><th>总计</th><th>耗时</th></tr>");
+		
+		// 增加脚本低通过率预警邮件内容，modified by 高彦君 @ 205/06/04 
+		String warnSubject = "【搜索后台自动化测试】预警！脚本通过率低";
+		StringBuffer warnContent = new StringBuffer();
+		warnContent.append("<html><head><meta http-equiv=Content-Type content='text/html; charset=utf-8'></head><body><table border=1 cellspacing=0 cellpadding=0><tr><th>功能模块</th><th>通过query</th><th>失败query</th><th>跳过query</th><th>总计</th><th>实际通过率</th><th>预期通过率</th></tr>");
+		boolean doSendWarnMail = false;
+		
+		try{
+			// 通过反射调用本类中的方法，除了下边过滤掉的四个，每个方法返回结果是一样的(result)map形式，包含通过、失败、跳过条数，以及方法名称
+			IndexModifyScheduler modifyScheduler = new IndexModifyScheduler();
+			Class c = modifyScheduler.getClass();
+			Method[] methods = c.getDeclaredMethods();
+			Map<String, String> result = new HashMap<String, String>();
+			for(Method method : methods){
+				try{
+					if(method.getName().equals("IndexModify") ||
+							method.getName().equals("setup") ||
+							method.getName().equals("clearup") ||
+							method.getName().equals("Test"))
+						continue;
+					else
+						result =(Map<String, String>)method.invoke(modifyScheduler);
+				}catch(Exception e){
+					logger.error("failed when casting Object to Map<String,String> in reflection");
+					return;
+				}
+				
+				logger.info(String.format(" - [LOG_SUMMARY] - vp: %s, passed: %s, failed: %s, skiped: %s", 
+						result.get("methodname"),  result.get("passed"), result.get("failed"), result.get("skipped")));
+				long d2 = System.currentTimeMillis();
+				String d3 = Math.ceil((d2-d1)/60000.0)+"分钟";
+				int total = Integer.parseInt(result.get("passed")) + Integer.parseInt(result.get("failed")) + Integer.parseInt(result.get("skipped"));
+				content.append(String.format("<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>", 
+						result.get("methodname"), result.get("passed"), result.get("failed"), result.get("skipped"), 
+						((Integer)(total)).toString(), d3));
+				
+				// 增加脚本低通过率预警邮件内容，计算实际通过率，与fvp.minpassrate比较后决定是否发送邮件，modified by 高彦君 @ 205/06/04 
+				double actualPassrate = Calculator.passrate(Integer.parseInt(result.get("passed")),total);
+				double expectedPassrate = 90.0;
+				// 如果通过率比预期的低，发送邮件
+				if(actualPassrate < expectedPassrate){
+					warnContent.append(String.format("<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>", 
+							result.get("methodname"), result.get("passed"), result.get("failed"), result.get("skipped"), 
+							((Integer)(total)).toString(), actualPassrate + "%", expectedPassrate + "%"));
+					doSendWarnMail = true;
+				}
+			}
+			
+		}catch(Exception e){
+			logger.error("failed when executing reflection");
+			e.printStackTrace();
+			return;
+		}
+		
+		content.append("</table></body></html>");
+		Utils.sendMail(subject, content.toString(), "HTML");
+		
+		// 增加脚本低通过率预警邮件内容，modified by 高彦君 @ 205/06/04
+		if (doSendWarnMail){
+			warnContent.append("</table></body></html>");
+			Utils.sendWarningMail(warnSubject, warnContent.toString(), "HTML");
+		}		
+	}
+	
+	/**
+	 * 正常修改索引，字符串类型字段
+	 * @throws MalformedURLException
+	 * @throws DocumentException
+	 */
+	public  Map<String, String>  NormalIndexModifyStrType() throws MalformedURLException, DocumentException {
+		logger.info("normal update string type columns...");
+		Map<String, String> OriginalStrTypeColumns = new HashMap<String, String>();
+		OriginalStrTypeColumns.put("product_name", "original-test-product-name");
+		OriginalStrTypeColumns.put("cat_paths", "01.32.04.07.00.00");
+		OriginalStrTypeColumns.put("subname", "original-test_sub_name");
+		OriginalStrTypeColumns.put("attrib", "1000386:1-1000150:30");
+		try {
+			OriginalStrTypeColumns.put("title_primary", URLEncoder.encode("修改前的测试标题", "GBK"));
+		} catch (UnsupportedEncodingException e) {
+			logger.error("title_primary encoding error");
+		}
+		
+		Map<String, String> ModifiedStrTypeColumns = new HashMap<String, String>();
+		ModifiedStrTypeColumns.put("_modify_product_name", "modified-test-product-name");
+		ModifiedStrTypeColumns.put("_modify_cat_paths", "01.00.00.00.00");
+		ModifiedStrTypeColumns.put("_modify_subname", "modified-test_sub_name");
+		ModifiedStrTypeColumns.put("_modify_attrib", "1000150:33-1000012:4-1000247:10");
+		try {
+			ModifiedStrTypeColumns.put("_modify_title_primary", URLEncoder.encode("修改后的测试标题", "GBK"));
+		} catch (UnsupportedEncodingException e) {
+			logger.error("title_primary encoding error");
+		}
+				
+		Map<String, String> ret = new HashMap<String, String>();
+		int times = 10;
+		int passed =0 , failed = 0, skipped = 0;
+		while(times > 0){
+			int rt = IndexModify(OriginalStrTypeColumns,ModifiedStrTypeColumns, "normal");
+			switch(rt){
+			case 0:
+				passed += 1;
+				break;
+			case -1:
+				failed += 1;
+				break;
+			case -2:
+				skipped += 1;
+				break;
+			default:
+				failed += 1;							
+			}
+			times--;
+		}
+		ret.put("passed", ((Integer)passed).toString());
+		ret.put("failed", ((Integer)failed).toString());
+		ret.put("skipped", ((Integer)skipped).toString());
+		ret.put("methodname", "NormalIndexModify - StringType");
+		return ret;
+	}
+	
+	/**
+	 * 强制修改索引，字符串类型字段
+	 * @throws MalformedURLException
+	 * @throws DocumentException
+	 */
+	public  Map<String, String>  ForceIndexModifyStrType() throws MalformedURLException, DocumentException {
+		logger.info("force update string type columns...");
+		Map<String, String> OriginalStrTypeColumns = new HashMap<String, String>();
+		OriginalStrTypeColumns.put("product_name", "force-original-test_product_name");
+		OriginalStrTypeColumns.put("cat_paths", "10.02.01.00.00.00");
+		OriginalStrTypeColumns.put("subname", "force-original-test_sub_name");
+		OriginalStrTypeColumns.put("attrib", "1000012:4");
+		try {
+			OriginalStrTypeColumns.put("title_primary", URLEncoder.encode("强制更新-修改qian的测试标题", "GBK"));
+		} catch (UnsupportedEncodingException e) {
+			logger.error("title_primary encoding error");
+		}
+		
+		Map<String, String> ModifiedStrTypeColumns = new HashMap<String, String>();
+		ModifiedStrTypeColumns.put("_modify_product_name", "force-modified-test_product_name");
+		ModifiedStrTypeColumns.put("_modify_cat_paths", "08.03.00.00.00.00");
+		ModifiedStrTypeColumns.put("_modify_subname", "force-modified-test_sub_name");
+		ModifiedStrTypeColumns.put("_modify_attrib", "1000386:1");
+		try {
+			ModifiedStrTypeColumns.put("_modify_title_primary", URLEncoder.encode("强制更新-修改hou的测试标题", "GBK"));
+		} catch (UnsupportedEncodingException e) {
+			logger.error("title_primary encoding error");
+		}
+		
+		Map<String, String> ret = new HashMap<String, String>();
+		int times = 10;
+		int passed =0 , failed = 0, skipped = 0;
+		while(times > 0){
+			int rt = IndexModify(OriginalStrTypeColumns,ModifiedStrTypeColumns, "force");
+			switch(rt){
+			case 0:
+				passed += 1;
+				break;
+			case -1:
+				failed += 1;
+				break;
+			case -2:
+				skipped += 1;
+				break;
+			default:
+				failed += 1;							
+			}
+			times--;
+		}
+		ret.put("passed", ((Integer)passed).toString());
+		ret.put("failed", ((Integer)failed).toString());
+		ret.put("skipped", ((Integer)skipped).toString());
+		ret.put("methodname", "ForceIndexModify - StringType");
+		return ret;
+	}
+	
+	/**
+	 * 正常修改索引，Int类型字段
+	 * @throws MalformedURLException
+	 * @throws DocumentException
+	 */
+	public Map<String, String>  NormalIndexModifyIntType() throws MalformedURLException, DocumentException {
+		logger.info("normal update int type columns...");
+		Map<String, String> originalIntTypeColumns = new HashMap<String, String>();
+		originalIntTypeColumns.put("stock_status", "0");
+		originalIntTypeColumns.put("city_stock_status", "2213906211");
+		originalIntTypeColumns.put("display_status", "1");
+		originalIntTypeColumns.put("num_images", "15");
+		originalIntTypeColumns.put("shop_id", "1124");
+		originalIntTypeColumns.put("icon_flag_mall_new", "1");
+		
+		originalIntTypeColumns.put("is_publication", "0");
+		originalIntTypeColumns.put("total_review_count", "98");
+		originalIntTypeColumns.put("score", "6");
+		originalIntTypeColumns.put("product_medium", "12");
+		originalIntTypeColumns.put("promotion_id", "1444116");
+		
+		originalIntTypeColumns.put("is_dd_sell", "0");
+		originalIntTypeColumns.put("is_overseas", "1");
+		originalIntTypeColumns.put("brand_id", "4507");
+		originalIntTypeColumns.put("sale_week", "5");
+		originalIntTypeColumns.put("sale_week_amt", "33");
+		originalIntTypeColumns.put("activity_type", "86");
+		
+		originalIntTypeColumns.put("is_has_ebook", "0");
+		originalIntTypeColumns.put("ebook_product_id", "5254565");
+		originalIntTypeColumns.put("is_show", "1");
+		originalIntTypeColumns.put("item_count", "3");
+		originalIntTypeColumns.put("spu_id", "123456");
+		
+		Map<String, String> modifiedIntTypeColumns = new HashMap<String, String>();
+		modifiedIntTypeColumns.put("_modify_stock_status", "2");
+		modifiedIntTypeColumns.put("_modify_city_stock_status", "2213906211");
+		modifiedIntTypeColumns.put("_modify_display_status", "0");
+		modifiedIntTypeColumns.put("_modify_num_images", "10");
+		modifiedIntTypeColumns.put("_modify_shop_id", "0");
+		modifiedIntTypeColumns.put("_modify_icon_flag_mall_new", "0");
+		
+		modifiedIntTypeColumns.put("_modify_is_publication", "1");
+		modifiedIntTypeColumns.put("_modify_total_review_count", "1000");
+		modifiedIntTypeColumns.put("_modify_score", "8");
+		modifiedIntTypeColumns.put("_modify_product_medium", "0");
+		modifiedIntTypeColumns.put("_modify_promotion_id", "1443085");
+		
+		modifiedIntTypeColumns.put("_modify_is_dd_sell", "1");
+		modifiedIntTypeColumns.put("_modify_is_overseas", "0");
+		modifiedIntTypeColumns.put("_modify_brand_id", "7907");
+		modifiedIntTypeColumns.put("_modify_sale_week", "10");
+		modifiedIntTypeColumns.put("_modify_sale_week_amt", "20");
+		modifiedIntTypeColumns.put("_modify_activity_type", "52");
+		
+		modifiedIntTypeColumns.put("_modify_is_has_ebook", "1");
+		modifiedIntTypeColumns.put("_modify_ebook_product_id", "123456789");
+		modifiedIntTypeColumns.put("_modify_is_show", "2");
+		modifiedIntTypeColumns.put("_modify_item_count", "5");
+		modifiedIntTypeColumns.put("_modify_spu_id", "456789");
+
+		Map<String, String> ret = new HashMap<String, String>();
+		int times = 10;
+		int passed =0 , failed = 0, skipped = 0;
+		while(times > 0){
+			int rt = IndexModify(originalIntTypeColumns, modifiedIntTypeColumns, "normal");
+			switch(rt){
+			case 0:
+				passed += 1;
+				break;
+			case -1:
+				failed += 1;
+				break;
+			case -2:
+				skipped += 1;
+				break;
+			default:
+				failed += 1;							
+			}
+			times--;
+		}
+		ret.put("passed", ((Integer)passed).toString());
+		ret.put("failed", ((Integer)failed).toString());
+		ret.put("skipped", ((Integer)skipped).toString());
+		ret.put("methodname", "NormalIndexModify - IntType");
+		return ret;
+	}
+	
+	/**
+	 * 强制修改索引，Int类型字段
+	 * @throws MalformedURLException
+	 * @throws DocumentException
+	 */
+	public Map<String, String>  ForceIndexModifyIntType() throws MalformedURLException, DocumentException {
+		logger.info("force update int type columns...");
+		Map<String, String> originalIntTypeColumns = new HashMap<String, String>();
+		originalIntTypeColumns.put("stock_status", "1");
+		originalIntTypeColumns.put("city_stock_status", "2213906211");
+		originalIntTypeColumns.put("display_status", "0");
+		originalIntTypeColumns.put("num_images", "25");
+		originalIntTypeColumns.put("shop_id", "0");
+		originalIntTypeColumns.put("icon_flag_mall_new", "1");
+		
+		originalIntTypeColumns.put("is_publication", "0");
+		originalIntTypeColumns.put("total_review_count", "55");
+		originalIntTypeColumns.put("score", "4");
+		originalIntTypeColumns.put("product_medium", "17");
+		originalIntTypeColumns.put("promotion_id", "1437463");
+		
+		originalIntTypeColumns.put("is_dd_sell", "1");
+		originalIntTypeColumns.put("is_overseas", "1");
+		originalIntTypeColumns.put("brand_id", "4444");
+		originalIntTypeColumns.put("sale_week", "111");
+		originalIntTypeColumns.put("sale_week_amt", "124");
+		originalIntTypeColumns.put("activity_type", "70");
+		
+		originalIntTypeColumns.put("is_has_ebook", "0");
+		originalIntTypeColumns.put("ebook_product_id", "5845");
+		originalIntTypeColumns.put("is_show", "0");
+		originalIntTypeColumns.put("item_count", "0");
+		originalIntTypeColumns.put("spu_id", "3669");
+		
+		Map<String, String> modifiedIntTypeColumns = new HashMap<String, String>();
+		modifiedIntTypeColumns.put("_modify_stock_status", "2");
+		modifiedIntTypeColumns.put("_modify_city_stock_status", "2213906211");
+		modifiedIntTypeColumns.put("_modify_display_status", "0");
+		modifiedIntTypeColumns.put("_modify_num_images", "10");
+		modifiedIntTypeColumns.put("_modify_shop_id", "0");
+		modifiedIntTypeColumns.put("_modify_icon_flag_mall_new", "0");
+		
+		modifiedIntTypeColumns.put("_modify_is_publication", "1");
+		modifiedIntTypeColumns.put("_modify_total_review_count", "1000");
+		modifiedIntTypeColumns.put("_modify_score", "8");
+		modifiedIntTypeColumns.put("_modify_product_medium", "0");
+		modifiedIntTypeColumns.put("_modify_promotion_id", "1437577");
+		
+		modifiedIntTypeColumns.put("_modify_is_dd_sell", "1");
+		modifiedIntTypeColumns.put("_modify_is_overseas", "0");
+		modifiedIntTypeColumns.put("_modify_brand_id", "7907");
+		modifiedIntTypeColumns.put("_modify_sale_week", "10");
+		modifiedIntTypeColumns.put("_modify_sale_week_amt", "20");
+		modifiedIntTypeColumns.put("_modify_activity_type", "52");
+		
+		modifiedIntTypeColumns.put("_modify_is_has_ebook", "1");
+		modifiedIntTypeColumns.put("_modify_ebook_product_id", "123456789");
+		modifiedIntTypeColumns.put("_modify_is_show", "2");
+		modifiedIntTypeColumns.put("_modify_item_count", "5");
+		modifiedIntTypeColumns.put("_modify_spu_id", "456789");
+		
+		Map<String, String> ret = new HashMap<String, String>();
+		int times = 10;
+		int passed =0 , failed = 0, skipped = 0;
+		while(times > 0){
+			int rt = IndexModify(originalIntTypeColumns, modifiedIntTypeColumns, "force");
+			switch(rt){
+			case 0:
+				passed += 1;
+				break;
+			case -1:
+				failed += 1;
+				break;
+			case -2:
+				skipped += 1;
+				break;
+			default:
+				failed += 1;							
+			}
+			times--;
+		}
+		ret.put("passed", ((Integer)passed).toString());
+		ret.put("failed", ((Integer)failed).toString());
+		ret.put("skipped", ((Integer)skipped).toString());
+		ret.put("methodname", "ForceIndexModify - IntType");
+		return ret;
+	}
+	
+	/**
+	 * 正常修改索引，数字类型字段
+	 * @throws MalformedURLException
+	 * @throws DocumentException
+	 */
+	public Map<String, String>  NormalIndexModifyNumType() throws MalformedURLException, DocumentException {
+		logger.info("normal update number type columns...");
+		Map<String, String> originalNumTypeColumns = new HashMap<String, String>();
+		originalNumTypeColumns.put("activity_price", "10000");
+		originalNumTypeColumns.put("price", "20000");
+		originalNumTypeColumns.put("dd_sale_price", "30000");
+		originalNumTypeColumns.put("exclusive_price", "25000");		
+		originalNumTypeColumns.put("promo_saleprice", "24500");	
+		
+		Map<String, String> modifiedNumTypeColumns = new HashMap<String, String>();
+		modifiedNumTypeColumns.put("_modify_activity_price", "25000");
+		modifiedNumTypeColumns.put("_modify_price", "69800");
+		modifiedNumTypeColumns.put("_modify_dd_sale_price", "36800");
+		modifiedNumTypeColumns.put("_modify_exclusive_price", "28800");	
+		modifiedNumTypeColumns.put("_modify_promo_saleprice", "17800");	
+		
+		Map<String, String> ret = new HashMap<String, String>();
+		int times = 10;
+		int passed =0 , failed = 0, skipped = 0;
+		while(times > 0){
+			int rt = IndexModify(originalNumTypeColumns, modifiedNumTypeColumns, "normal");
+			switch(rt){
+			case 0:
+				passed += 1;
+				break;
+			case -1:
+				failed += 1;
+				break;
+			case -2:
+				skipped += 1;
+				break;
+			default:
+				failed += 1;							
+			}
+			times--;
+		}
+		ret.put("passed", ((Integer)passed).toString());
+		ret.put("failed", ((Integer)failed).toString());
+		ret.put("skipped", ((Integer)skipped).toString());
+		ret.put("methodname", "NormalIndexModify - NumType");
+		return ret;
+	}
+	
+	/**
+	 * 强制修改索引，数字类型字段
+	 * @throws MalformedURLException
+	 * @throws DocumentException
+	 */
+	public Map<String, String>  ForceIndexModifyNumType() throws MalformedURLException, DocumentException {
+		logger.info("force update number type columns...");
+		Map<String, String> originalNumTypeColumns = new HashMap<String, String>();
+		originalNumTypeColumns.put("activity_price", "30000");
+		originalNumTypeColumns.put("price", "60050");
+		originalNumTypeColumns.put("dd_sale_price", "35000");
+		originalNumTypeColumns.put("exclusive_price", "29800");		
+		originalNumTypeColumns.put("promo_saleprice", "29650");	
+		
+		Map<String, String> modifiedNumTypeColumns = new HashMap<String, String>();
+		modifiedNumTypeColumns.put("_modify_activity_price", "96050");
+		modifiedNumTypeColumns.put("_modify_price", "100050");
+		modifiedNumTypeColumns.put("_modify_dd_sale_price", "95000");
+		modifiedNumTypeColumns.put("_modify_exclusive_price", "93050");	
+		modifiedNumTypeColumns.put("_modify_promo_saleprice", "88888");	
+		
+		Map<String, String> ret = new HashMap<String, String>();
+		int times = 10;
+		int passed =0 , failed = 0, skipped = 0;
+		while(times > 0){
+			int rt = IndexModify(originalNumTypeColumns, modifiedNumTypeColumns, "force");
+			switch(rt){
+			case 0:
+				passed += 1;
+				break;
+			case -1:
+				failed += 1;
+				break;
+			case -2:
+				skipped += 1;
+				break;
+			default:
+				failed += 1;							
+			}
+			times--;
+		}
+		ret.put("passed", ((Integer)passed).toString());
+		ret.put("failed", ((Integer)failed).toString());
+		ret.put("skipped", ((Integer)skipped).toString());
+		ret.put("methodname", "ForceIndexModify - NumType");
+		return ret;
+	}
+	
+	/**
+	 * 正常修改索引，时间类型字段
+	 * @throws MalformedURLException
+	 * @throws DocumentException
+	 */
+	public Map<String, String>  NormalIndexModifyDateType() throws MalformedURLException, DocumentException {
+		logger.info("normal update date type columns...");
+		Map<String, String> OriginalStrTypeColumns = new HashMap<String, String>();
+		OriginalStrTypeColumns.put("activity_begin_time", "2013-05-20 01:00:00");
+		OriginalStrTypeColumns.put("activity_end_time", "2016-05-15 01:00:00");
+		OriginalStrTypeColumns.put("exclusive_begin_date", "2012-08-04 12:30:35");
+		OriginalStrTypeColumns.put("exclusive_end_date", "2018-08-04 12:56:52");
+		
+		OriginalStrTypeColumns.put("promo_start_date", "2014-06-05 08:08:08");
+		OriginalStrTypeColumns.put("promo_end_date", "2016-09-05 23:59:59");
+		OriginalStrTypeColumns.put("first_input_date", "2012-11-10 11:11:11");
+		OriginalStrTypeColumns.put("action_start_date", "2013-11-11 01:00:00");
+		OriginalStrTypeColumns.put("action_end_date", "2013-11-12 23:59:59");			
+		
+		Map<String, String> ModifiedStrTypeColumns = new HashMap<String, String>();
+		ModifiedStrTypeColumns.put("_modify_activity_begin_time", "2015-07-04 01:00:00");
+		ModifiedStrTypeColumns.put("_modify_activity_end_time", "2016-07-04 01:00:00");
+		ModifiedStrTypeColumns.put("_modify_exclusive_begin_date", "2015-08-04 12:00:00");
+		ModifiedStrTypeColumns.put("_modify_exclusive_end_date", "2016-08-04 12:00:00");
+		
+		ModifiedStrTypeColumns.put("_modify_promo_start_date", "2015-06-05 01:00:00");
+		ModifiedStrTypeColumns.put("_modify_promo_end_date", "2016-09-05 02:00:00");
+		ModifiedStrTypeColumns.put("_modify_first_input_date", "2013-08-06 12:00:00");
+		ModifiedStrTypeColumns.put("_modify_action_start_date", "2012-01-01 12:00:00");
+		ModifiedStrTypeColumns.put("_modify_action_end_date", "2016-01-01 12:00:00");		
+				
+		Map<String, String> ret = new HashMap<String, String>();
+		int times = 10;
+		int passed =0 , failed = 0, skipped = 0;
+		while(times > 0){
+			int rt = IndexModify(OriginalStrTypeColumns,ModifiedStrTypeColumns, "normal");
+			switch(rt){
+			case 0:
+				passed += 1;
+				break;
+			case -1:
+				failed += 1;
+				break;
+			case -2:
+				skipped += 1;
+				break;
+			default:
+				failed += 1;							
+			}
+			times--;
+		}
+		ret.put("passed", ((Integer)passed).toString());
+		ret.put("failed", ((Integer)failed).toString());
+		ret.put("skipped", ((Integer)skipped).toString());
+		ret.put("methodname", "NormalIndexModify - DateType");
+		return ret;
+	}
+	
+	/**
+	 * 强制修改索引，时间类型字段
+	 * @throws MalformedURLException
+	 * @throws DocumentException
+	 */
+
+	public Map<String, String>  ForceIndexModifyDateType() throws MalformedURLException, DocumentException {
+		logger.info("force update date type columns...");
+		Map<String, String> OriginalStrTypeColumns = new HashMap<String, String>();
+		OriginalStrTypeColumns.put("activity_begin_time", "2015-07-04 01:00:00");
+		OriginalStrTypeColumns.put("activity_end_time", "2016-07-04 01:00:00");
+		OriginalStrTypeColumns.put("exclusive_begin_date", "2015-08-04 12:00:00");
+		OriginalStrTypeColumns.put("exclusive_end_date", "2016-08-04 12:00:00");
+		
+		OriginalStrTypeColumns.put("promo_start_date", "2015-06-05 01:00:00");
+		OriginalStrTypeColumns.put("promo_end_date", "2016-09-05 02:00:00");
+		OriginalStrTypeColumns.put("first_input_date", "2013-08-06 12:00:00");
+		OriginalStrTypeColumns.put("action_start_date", "2012-01-01 12:00:00");
+		OriginalStrTypeColumns.put("action_end_date", "2016-01-01 12:00:00");			
+		
+		Map<String, String> ModifiedStrTypeColumns = new HashMap<String, String>();
+		ModifiedStrTypeColumns.put("_modify_activity_begin_time", "2010-07-04 01:00:00");
+		ModifiedStrTypeColumns.put("_modify_activity_end_time", "2020-07-04 01:00:00");
+		ModifiedStrTypeColumns.put("_modify_exclusive_begin_date", "2010-08-04 12:00:00");
+		ModifiedStrTypeColumns.put("_modify_exclusive_end_date", "2020-08-04 12:00:00");
+		
+		ModifiedStrTypeColumns.put("_modify_promo_start_date", "2010-06-05 01:00:00");
+		ModifiedStrTypeColumns.put("_modify_promo_end_date", "2020-09-05 02:00:00");
+		ModifiedStrTypeColumns.put("_modify_first_input_date", "2010-08-06 12:00:00");
+		ModifiedStrTypeColumns.put("_modify_action_start_date", "2010-01-01 12:00:00");
+		ModifiedStrTypeColumns.put("_modify_action_end_date", "2020-01-01 12:00:00");
+				
+		Map<String, String> ret = new HashMap<String, String>();
+		int times = 10;
+		int passed =0 , failed = 0, skipped = 0;
+		while(times > 0){
+			int rt = IndexModify(OriginalStrTypeColumns,ModifiedStrTypeColumns, "force");
+			switch(rt){
+			case 0:
+				passed += 1;
+				break;
+			case -1:
+				failed += 1;
+				break;
+			case -2:
+				skipped += 1;
+				break;
+			default:
+				failed += 1;							
+			}
+			times--;
+		}
+		ret.put("passed", ((Integer)passed).toString());
+		ret.put("failed", ((Integer)failed).toString());
+		ret.put("skipped", ((Integer)skipped).toString());
+		ret.put("methodname", "ForceIndexModify - DateType");
+		return ret;
+	}
+	
+	/**
+	 * 强制修改索引共用方法
+	 * @param originalMap		修改前字段和字段值列表
+	 * @param modifiedMap		修改后字段和字段值列表
+	 * @param mode				强制更新或正常更新 - force or normal
+	 * @throws MalformedURLException
+	 * @throws DocumentException
+	 */
+	private int IndexModify(Map<String, String> originalMap, Map<String, String> modifiedMap, String mode) throws MalformedURLException, DocumentException{
+		boolean isPass = true;
+		boolean addSuccess = false;
+		boolean modifySuccess = false;
+		
+		// 随机造一个不存在的pid
+		Random random = new Random();
+		int randomPID = random.nextInt(Integer.MAX_VALUE);		
+		String pid = Integer.toString(randomPID);
+		
+		// 获取指定模块的fulltm和incnum
+		Map<String, String> FulltmAndIncNum = new HashMap<String, String>();
+		
+		// 确定单品在索引中不存在
+		List<Node> PidNode = URLBuilder.porductSearch(pid, false);		
+		
+		// 新增一个品到索引中，然后修改
+		if(PidNode.isEmpty()){	
+			// 新增			
+			ProductIdList.add(pid);			
+			Map<String, String> paramOriginal = new HashMap<String, String>();
+			paramOriginal.put("product_id", pid);
+			paramOriginal.putAll(originalMap);
+			paramOriginal.put("_index_add", "1");
+			FulltmAndIncNum = IndexDataHandler.GetFulltmAndIncNum("searcher");
+			paramOriginal.putAll(FulltmAndIncNum);
+			
+			String url = URLBuilder.buildUrl(paramOriginal);
+			url = url.replaceAll(" ", "%20");
+			String ret = SearchRequester.get(url);
+			if(ret.contains("OK")){
+				addSuccess = true;
+				logger.info(String.format("add API request returns 'OK', pid - [%s] ", pid));
+			}else{
+				isPass = false;
+				logger.error(String.format("add API request returns '[%s]', pid - [%s] ", ret, pid));
+			}
+			
+			// 确认新增成功
+			if(addSuccess){
+				List<Node> newPidNode = URLBuilder.porductSearch(pid, false);
+				if(newPidNode.isEmpty()){
+					isPass = false;
+					logger.error(String.format("add API request was succeeded, but did not find pid [ %s ] in index!", pid));
+				}
+				
+				// 修改						
+				Map<String, String> paramModified = new HashMap<String, String>();
+				paramModified.put("product_id", pid);
+				paramModified.putAll(modifiedMap);
+				paramModified.put("_index_modify", "1");
+				
+				// 强制更新索引，多一个_force_update参数,且没有时间戳和inc num参数
+				if(mode.equals("force"))
+					paramModified.put("_force_update", "1");
+				else{
+					FulltmAndIncNum = IndexDataHandler.GetFulltmAndIncNum("searcher");		
+					paramModified.putAll(FulltmAndIncNum);
+				}
+				String modifiedUrl = URLBuilder.buildUrl(paramModified);
+				modifiedUrl = modifiedUrl.replaceAll(" ", "%20");
+				String modifiedRet = SearchRequester.get(modifiedUrl);
+				if(modifiedRet.contains("OK")){
+					modifySuccess = true;
+					logger.info(String.format("modify API request returns 'OK', pid - [%s] ", pid));
+				}else{
+					isPass = false;
+					logger.error(String.format("modify API request returns '[%s]', pid - [%s] ", ret, pid));
+				}
+			}
+			
+			// 验证：通过单品接口，找到被修改的单品，遍历被设置的字段，比较人工设置的值和接口返回的是否相同
+			if(modifySuccess){
+				List<Node> modifiedPidNode = URLBuilder.porductSearch(pid, false);
+				if(modifiedPidNode.isEmpty()){
+					isPass = false;
+					logger.error(String.format("modify API request was succeeded, but did not find pid [ %s ] in index!", pid));
+				}else{
+					for(Entry<String, String> entry: modifiedMap.entrySet()){
+						String expectedName = entry.getKey().replace("_modify_", ""); // modifiedMap中的字段都是带"_modify_"前缀的，需要去掉才能得到字段名
+						String expectedValue = null;
+						try {
+							expectedValue = URLDecoder.decode(entry.getValue(), "GBK");
+						} catch (UnsupportedEncodingException e) {
+							logger.error("decoding error when transfer" + expectedValue + "into GBK");
+						}
+						String actualValue = XMLParser.prodSpecifiedAttrib(modifiedPidNode.get(0), expectedName);
+						if(actualValue.trim().equals(expectedValue.trim())){
+							//logger.info(String.format("modify succeed, pid [ %s] , attribute [%s], value is [%s]!", pid, expectedName, expectedValue));
+						}
+						else{
+							isPass = false;
+							logger.error(String.format("modify pid [ %s ] in index, but attribute [%s]'s value is not correct, actual is [%s], expected is [%s]!", pid, expectedName, actualValue, expectedValue));
+						}
+					}
+				}
+			}
+			
+			if(isPass){
+				logger.info(String.format(" - [LOG_SUCCESS] - modify method was succeeded - pid %s", pid));
+				return 0;
+			}else{
+				logger.error(String.format(" - [LOG_FAILED] - modify method was failed - pid %s", pid));
+				return -1;
+			}
+		}else{
+			logger.info(String.format("PID [%s] already exists in index", pid));
+			return -2;
+		}
+	}
+}

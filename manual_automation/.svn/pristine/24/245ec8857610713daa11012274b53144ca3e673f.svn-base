@@ -1,0 +1,37 @@
+package com.dangdang;
+
+import org.apache.log4j.Logger;
+import org.apache.log4j.PropertyConfigurator;
+import org.testng.annotations.AfterMethod;
+import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.Test;
+
+/**   
+ * @author liuzhipengjs@dangdang.com  
+ * @version 创建时间：2014年11月13日 下午5:24:39  
+ * 类说明  列表运营策略
+ */
+public class ListOpt {
+	
+	private static Logger logger = Logger.getLogger(ListOpt.class);
+	{  		
+		PropertyConfigurator.configure("conf/listopt_log4j.properties");
+	}
+	
+	
+	@BeforeMethod 
+	public void setup() {  	
+	}  
+
+	@AfterMethod 
+	public void clearup() { 
+	} 
+	
+	
+	
+	
+	
+	
+	
+
+}

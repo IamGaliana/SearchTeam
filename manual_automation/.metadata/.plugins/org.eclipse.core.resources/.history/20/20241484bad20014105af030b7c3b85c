@@ -1,0 +1,244 @@
+package com.dangdang.verifier.filter;
+
+import java.net.MalformedURLException;
+import java.util.HashMap;
+import java.util.Map;
+
+import org.dom4j.Document;
+import org.dom4j.DocumentException;
+import org.dom4j.Node;
+
+import com.dangdang.client.SearchRequester;
+import com.dangdang.client.URLBuilder;
+import com.dangdang.util.ProdIterator;
+import com.dangdang.util.XMLParser;
+import com.dangdang.verifier.iVerifier.IFilterVerifier;
+
+public class ClothesSizeVerifier extends IFilterVerifier {
+
+	@Override
+	public boolean doVerify(ProdIterator iterator, Map<String, String> map, boolean hasResult) {
+		logger.debug(String.format(" -  [CHECK-PASS-INFO] check pass for 【clothes_size】 filter : %s"));
+		if (VerifyDefaultSearch(iterator,map) && VerifyNonDefaultSearch(iterator,map))
+			return true;
+		else
+			return false;
+	}	
+	
+	// 获取后台返回结果
+	private String GetQueryResult( Boolean is_default_search )
+	{
+		Map<String, String> queryMap = new HashMap<String, String>();
+		String xml = "";		
+		if (is_default_search)
+			queryMap.put("is_default_search", "1");
+		else
+			queryMap.put("is_default_search", "0");
+		queryMap.put("pg", "1");	
+		String url = URLBuilder.buildURL(queryMap);
+		xml = SearchRequester.get(url);				
+		return xml;	
+	}
+	
+	// 验证默认搜索逻辑
+	// total count<60,检查is_show_size，没有，则pass
+	// total_count>=60,检查Attrib，没有，再检查is_show_size，没有，则pass
+	// 有attrib，检查当前页有product/clothes_size节点的品的个数，			
+	private Boolean VerifyDefaultSearch(ProdIterator iterator, Map<String, String> map)
+	{
+		String resultXML = GetQueryResult(true);
+		Document doc = null;
+		try 
+		{
+			doc = XMLParser.read(resultXML); 
+		}
+		catch (MalformedURLException e) {
+			e.printStackTrace();
+		}
+		catch (DocumentException e) {
+			e.printStackTrace();
+		}
+		
+		int totalcount = Integer.valueOf( XMLParser.totalCount(doc));		
+		String is_show_size = XMLParser.is_show_size(doc);
+		// 默认搜索结果集个数少于60，不展示尺码
+		if (totalcount < 60)
+		{
+			if (is_show_size == null)
+			{
+				logger.info(" - [LOG_SUCCESS] - This query " + map.get("query").toString() + " totalcount less than 60, is_show_size does not show off.");
+				return true;
+			}
+			else
+			{
+				logger.info(" - [LOG_FAIL] - This query " + map.get("query").toString() + " totalcount less than 60, is_show_size should not show off.");
+				return false;
+			}
+		}
+		else
+		{
+			// 没有一般属性，不展示尺码
+			if(!XMLParser.HasCommonAttrib(doc)) 
+			{
+				if(is_show_size == null)
+				{
+					logger.info(" - [LOG_SUCCESS] - This query " + map.get("query").toString() + " totalcount less than 60, is_show_size does not show off.");
+					return true;
+				}
+				else
+				{
+					logger.info(" - [LOG_FAIL] - This query " + map.get("query").toString() + " totalcount less than 60, is_show_size should not show off.");
+					return false;
+				}
+			}
+			else
+			{
+				// 统计单品的尺码出现次数，<502,2次>,<503,3次>
+				Map<String, Integer> spuMap = new HashMap<String,Integer>(); // <尺码，spu个数>：<502,11>,<503:12>,<512:19>
+				Map<String, Integer> cmMap = new HashMap<String,Integer>();  // <尺码，属性个数>：<502:5>,<503:4>,<512,3>
+				
+				if(!iterator.hasNext())
+					iterator.reSet();
+				
+				while(iterator.hasNext())
+				{					
+					Node prodnode = iterator.next();
+					String clothessize = XMLParser.product_clothessize(prodnode);					
+					if(clothessize!="0")
+					{				
+						String sizeCategory = clothessize.split(":")[0]; // e.g. 503/502/512
+						String[] sizes = clothessize.split("-"); // e.g. 502:9-502:10-502:11
+						if(!spuMap.containsKey(sizeCategory))   
+						{
+							spuMap.put(sizeCategory, 1); //<502,10>,<503,11>,<512,25>
+							int attribcount = 0;
+							for(String size : sizes)     // [502:5,502:7,502:11]
+							{
+								String cm = size.split(":")[0]; // 502								
+								if(!cmMap.containsKey(size)) // 502:5
+								{
+									attribcount ++;
+									cmMap.put(cm, attribcount); // <502:3> <503:7> <512:8>
+								}
+							}
+						}
+						else
+						{
+							// todo: optimize
+							int count = spuMap.get(sizeCategory);
+							count++;
+							spuMap.put(sizeCategory, count);
+							
+							int attribcount = 0;
+							for(String size : sizes)     // [502:5,502:7,502:11]
+							{
+								String cm = size.split(":")[0]; // 502
+								
+								if(!cmMap.containsKey(size)) // 502:5
+								{
+									attribcount ++;
+									cmMap.put(cm, attribcount); // <502:3> <503:7> <512:8>
+								}
+								else
+									continue;
+							}
+						}												
+					}					
+				}
+			}
+		}
+		
+		logger.debug(String.format(" -  [CHECK-PASS-INFO] check pass for 【clothes_size】 filter : %s"));	
+		return null;
+					
+	}		
+
+	// 检查非默认搜索下尺码属性展现
+	private Boolean VerifyNonDefaultSearch(ProdIterator iterator, Map<String, String> map)
+	{
+		String resultXML = GetQueryResult(false);
+		Document doc = null;
+		try {
+			doc = XMLParser.read(resultXML);
+		} catch (MalformedURLException e) {
+			e.printStackTrace();
+		} catch (DocumentException e) {
+			e.printStackTrace();
+		}			
+		
+		String is_show_size = XMLParser.is_show_size(doc);
+		
+		if(!XMLParser.HasCommonAttrib(doc)) 
+		{
+			if(is_show_size == null)
+			{
+				logger.info(" - [LOG_SUCCESS] - This query " + map.get("query").toString() + " totalcount less than 60, is_show_size does not show off.");
+				return true;
+			}
+			else
+			{
+				logger.info(" - [LOG_FAIL] - This query " + map.get("query").toString() + " totalcount less than 60, is_show_size should not show off.");
+				return false;
+			}
+		}
+		else
+		{
+			// 统计单品的尺码出现次数，<502,2>,<503,3>
+			Map<String, Integer> spuMap = new HashMap<String,Integer>(); // <尺码，spu个数>：<502,11>,<503:12>,<512:19>
+			Map<String, Integer> cmMap = new HashMap<String,Integer>();  // <尺码，属性个数>：<502:5>,<503:4>,<512,3>
+			
+			if(!iterator.hasNext())
+				iterator.reSet();
+			
+			while(iterator.hasNext())
+			{					
+				Node prodnode = iterator.next();
+				String clothessize = XMLParser.product_clothessize(prodnode);
+				String sizeCategory = clothessize.split(":")[0]; // e.g. 503/502/512
+				String[] sizes = clothessize.split("-"); // e.g. 502:9-502:10-502:11
+				if(clothessize!="0")
+				{				
+					if(!spuMap.containsKey(sizeCategory))   
+					{
+						spuMap.put(sizeCategory, 1); //<502,10>,<503,11>,<512,25>
+						int attribcount = 0;
+						for(String size : sizes)     // [502:5,502:7,502:11]
+						{
+							String cm = size.split(":")[0]; // 502								
+							if(!cmMap.containsKey(size)) // 502:5
+							{
+								attribcount ++;
+								cmMap.put(cm, attribcount); // <502:3> <503:7> <512:8>
+							}
+						}
+					}
+					else
+					{
+						// todo: optimize
+						int count = spuMap.get(sizeCategory);
+						count++;
+						spuMap.put(sizeCategory, count);
+						
+						int attribcount = 0;
+						for(String size : sizes)     // [502:5,502:7,502:11]
+						{
+							String cm = size.split(":")[0]; // 502
+							
+							if(!cmMap.containsKey(size)) // 502:5
+							{
+								attribcount ++;
+								cmMap.put(cm, attribcount); // <502:3> <503:7> <512:8>
+							}
+						}
+					}												
+				}					
+			}
+		}
+		return null;
+		// 检查Attrib，没有，再检查is_show_size，没有，则pass
+			// 有attrib，检查当前页有product/clothes_size节点的品的个数，统计尺码个数
+		
+	}
+
+	
+}

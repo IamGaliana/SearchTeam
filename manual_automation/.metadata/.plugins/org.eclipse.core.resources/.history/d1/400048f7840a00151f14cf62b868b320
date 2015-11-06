@@ -1,0 +1,50 @@
+package Test;
+
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Set;
+
+public class filesOperation {
+	
+	public static Map<String, String> m_files = new HashMap<String, String>();
+	public static void main(String[] args){
+		try {
+			m_files = GetFileMap("D:/test");
+			System.out.println("files in map:");
+			for(Entry<String,String> file: m_files.entrySet()){
+				System.out.println("path:" + file.getKey());
+				System.out.println("file:" + file.getValue());
+			}
+		} catch (IOException e) {
+			System.out.println("IOException at main method: " + e.getMessage());
+			e.printStackTrace();
+		}
+		System.out.println("Ok!");
+	}
+	
+	public static List<String> GetFileMap(String path) throws FileNotFoundException, IOException{
+		List<String> l_file = null;
+		try{			
+			File file = new File(path);
+			File[] fileList = file.listFiles();
+			for(int i=0;i<fileList.length; i ++){			
+				if(fileList[i].isFile()){
+					System.out.println("file path is:" + fileList[i].getPath());
+					System.out.println("file name is:" + fileList[i].getName());
+					l_file.add(fileList[i].getAbsolutePath());
+				}else if(fileList[i].isDirectory()){
+					GetFileMap(fileList[i].getPath());
+				}
+			}
+		}
+		catch(FileNotFoundException e){
+			System.out.println("GetFileMap() exception:" + e.getMessage());
+		}
+		return l_file;
+	}
+}

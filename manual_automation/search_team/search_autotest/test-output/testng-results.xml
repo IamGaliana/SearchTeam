@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testng-results skipped="0" failed="0" total="1" passed="1">
+  <reporter-output>
+  </reporter-output>
+  <suite name="Default suite" duration-ms="3132" started-at="2015-11-05T07:26:09Z" finished-at="2015-11-05T07:26:12Z">
+    <groups>
+      <group name="p2">
+        <method signature="IntelligenceCorrectionScheduler.IntelligenceCorrection()[pri:0, instance:com.dangdang.IntelligenceCorrectionScheduler@2698dc7]" name="IntelligenceCorrection" class="com.dangdang.IntelligenceCorrectionScheduler"/>
+      </group> <!-- p2 -->
+    </groups>
+    <test name="Default test" duration-ms="3132" started-at="2015-11-05T07:26:09Z" finished-at="2015-11-05T07:26:12Z">
+      <class name="com.dangdang.IntelligenceCorrectionScheduler">
+        <test-method status="PASS" signature="setup()[pri:0, instance:com.dangdang.IntelligenceCorrectionScheduler@2698dc7]" name="setup" is-config="true" duration-ms="8" started-at="2015-11-05T15:26:09Z" finished-at="2015-11-05T15:26:09Z">
+          <reporter-output>
+          </reporter-output>
+        </test-method> <!-- setup -->
+        <test-method status="PASS" signature="IntelligenceCorrection()[pri:0, instance:com.dangdang.IntelligenceCorrectionScheduler@2698dc7]" name="IntelligenceCorrection" duration-ms="3093" started-at="2015-11-05T15:26:09Z" finished-at="2015-11-05T15:26:12Z">
+          <reporter-output>
+          </reporter-output>
+        </test-method> <!-- IntelligenceCorrection -->
+        <test-method status="PASS" signature="clearup()[pri:0, instance:com.dangdang.IntelligenceCorrectionScheduler@2698dc7]" name="clearup" is-config="true" duration-ms="1" started-at="2015-11-05T15:26:12Z" finished-at="2015-11-05T15:26:12Z">
+          <reporter-output>
+          </reporter-output>
+        </test-method> <!-- clearup -->
+        <test-method status="PASS" signature="calssclearup()[pri:0, instance:com.dangdang.IntelligenceCorrectionScheduler@2698dc7]" name="calssclearup" is-config="true" duration-ms="0" started-at="2015-11-05T15:26:12Z" finished-at="2015-11-05T15:26:12Z">
+          <reporter-output>
+          </reporter-output>
+        </test-method> <!-- calssclearup -->
+      </class> <!-- com.dangdang.IntelligenceCorrectionScheduler -->
+    </test> <!-- Default test -->
+  </suite> <!-- Default suite -->
+</testng-results>

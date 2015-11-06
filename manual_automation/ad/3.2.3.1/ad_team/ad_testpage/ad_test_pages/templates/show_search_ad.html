@@ -1,0 +1,99 @@
+<html>
+   <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+   <head>
+   <title>搜索广告</title>
+   <link rel="stylesheet" href={{static_url("mystyle.css")}}>
+   </head>
+   <body>
+       <div>
+       <form id='input' name="input" method="get" action="">
+
+            <label style="display:inline-block;width:70"><strong>搜索页广告</strong></label>
+
+            <label style="display:inline-block;font-size:20px" > </label> <br>
+            <hr style="width:280" align="left">
+
+            <label style="display:inline-block;width:70">页面位置</label>
+            <input type="radio" name='pos_id' value="0" {% if pos_id == "0" %} checked = "checked" {% end %}> 搜索页右侧和下方（pos0）
+            <input type="radio" name='pos_id' value="10" {% if pos_id == "10" %} checked = "checked" {% end %}> 搜索页黄金展位（pos10）
+            <input type="radio" name='pos_id' value="200" {% if pos_id == "200" %} checked = "checked" {% end %}> app搜索（pos200）
+            <br>
+
+            <label style="display:inline-block;width:70">版本</label>
+            <input type="radio" name='exp_ver' value="1" {% if exp_ver == "1" %} checked = "checked" {% end %}> 版本1
+            <input type="radio" name='exp_ver' value="2" {% if exp_ver == "2" %} checked = "checked" {% end %}> 版本2
+            <input type="radio" name='exp_ver' value="3" {% if exp_ver == "3" %} checked = "checked" {% end %}> 版本3
+            <input type="radio" name='exp_ver' value="4" {% if exp_ver == "4" %} checked = "checked" {% end %}> 版本4
+            <input type="radio" name='exp_ver' value="5" {% if exp_ver == "5" %} checked = "checked" {% end %}> 版本5<br>
+
+            <label style="display:inline-block;width:80">关键词</label><input type="text" name='extra' value="{{extra}}">
+            <label style="display:inline-block;font-size:15px" onmouseover="innerHTML=description[3]" onmouseout="innerHTML='？'"> </label> <br>
+
+            <label style="display:inline-block;width:80">page_no</label><input type="text" name='page_no' value="{{page_no}}"><br>
+            <label style="display:inline-block;width:80">page_size</label><input type="text" name='page_size' value="{{page_size}}"><br>
+            <hr style="width:280" align="left">
+
+            <script type="text/javascript">
+              function check_size()
+              {
+                document.getElementsByName("page_size")[0].value = Math.max(Math.min(Number(document.getElementsByName("page_size")[0].value), 50), 1) + "";
+              }
+
+              function next_page()
+              {
+                document.getElementsByName("page_no")[0].value = Number(document.getElementsByName("page_no")[0].value) + 1 + "";
+              }
+
+              function pre_page()
+              {
+                document.getElementsByName("page_no")[0].value = Math.max(Number(document.getElementsByName("page_no")[0].value) - 1, 0) + "";
+              }
+
+              function random_permid()
+              {
+                document.getElementsByName("perm_id")[0].value = "";
+              }
+            </script>
+
+            <input type="submit" value="确定" onclick="check_size()">
+            <input type="submit" value="上一页" onclick="check_size(),pre_page()">
+            <input type="submit" value="下一页" onclick="check_size(),next_page()">
+            <input type="button" value="返回首页" onclick="window.location='/'"/>
+        </form>
+    </div>
+    <hr>
+    <div>
+        <div id="req_cnt">
+            <p>Total_cnt: {{total_count}} </p>
+            <p>Your request is: {{url}}</p>
+        </div>
+    </div>
+    <hr>
+    <div style="margin: 10px 0px;">
+    <table border = "1" class="pid_info">
+        <tr  style="vertical-align: top;">
+            <td class="frame_width" colspan='4' >广告商品信息</td>
+        </tr>
+        <tr>
+            <td class="frame_width">
+            {% for item in ret %}
+              <div class='extend_reco_pid_div'>
+                <div class="pid_img"><img src='{{item["img"]}}'> </div>
+                <div class="pid_pid"><a href="{{item["url"]}}">商品id： {{item['pid']}}</a></div>
+                <div class="pid_name" title="{{item['name']}}">商品名称： {{item['name']}}</div>
+                <div class="ad_name" title="{{item['ad_name']}}">广告名称： {{item['ad_name']}}</div>
+                <div class="cat_id">cat_id: {{item['cat_id']}}</div>
+                <div class="pid_tip">category_path: {{item['category_path']}}</div>
+                <div class="pid_tip">category_name: {{item['category_name']}}</div>
+                <div class="pid_price">bid: {{item['bid']}}</div>
+                <div class="debug_info" title="{{item['debug_info']}}">debugAdinfo:{{item['debug_info']}}</div>
+                <div class="ad_id">ad_id: {{item['ad_id']}}</div>
+                <div class="pos">pos: {{item['pos']}}</div>
+              </div>
+            {% end %}
+            </td>
+        </tr>
+    </table>
+    </div>
+   </body>
+</html>

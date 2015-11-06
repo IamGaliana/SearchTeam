@@ -1,0 +1,93 @@
+<html>
+   <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+   <head>
+      <title>单品页广告</title>
+      <link rel="stylesheet" href={{static_url("mystyle.css")}}>
+   </head>
+   <body>
+    <div>
+        <form id='input' name="input" method="get" action=""i>
+            <br>
+            <label style="display:inline-block;width:500;font-size: 30px"><strong>测试环境单品页广告测试页</strong></label>
+            <label style="display:inline-block;font-size:50px" > </label> <br>
+            <hr style="width:500" align="left">
+            <label style="display:inline-block;width:70">来源</label>
+            <input type="radio" name="pos_id" value="6" {% if pos_id == "6" %} checked = "checked" {% end %}> 图书
+            <input type="radio" name="pos_id" value="1" {% if pos_id == "1" %} checked = "checked" {% end %}> 百货
+            <input type="radio" name="pos_id" value="201" {% if pos_id == "201" %} checked = "checked" {% end %}> APP百货（pos_id201）
+            <input type="radio" name="pos_id" value="206" {% if pos_id == "206" %} checked = "checked" {% end %}> APP图书（pos_id206）
+            <br>
+
+            <label style="display:inline-block;width:70">版本</label>
+            <input type="radio" name='version' value="1" {% if version == "1" %} checked = "checked" {% end %}> 版本1
+            <input type="radio" name='version' value="2" {% if version == "2" %} checked = "checked" {% end %}> 版本2
+            <input type="radio" name='version' value="3" {% if version == "3" %} checked = "checked" {% end %}> 版本3 <br>
+
+            <label style="display:inline-block;width:80">page_num</label><input type="text" name='page_no' value="{{page_no}}"><br>
+            <label style="display:inline-block;width:80">page_size</label><input type="text" name='page_size' value="{{page_size}}"><br>
+            <label style="display:inline-block;width:80">product_id</label><input type="text" name='product_id' value="{{product_id}}"><br>
+            <!--<label style="display:inline-block;width:80">cat_id:{{cat_id}}</label><br>-->
+            <label style="display:inline-block;width:80">cat_id</label><input type="text" name='cat_id' value="{{cat_id}}" readonly="true" disabled><br>
+
+
+            <script type="text/javascript">
+              function check_size()
+              {
+                document.getElementsByName("page_size")[0].value = Math.max(Math.min(Number(document.getElementsByName("page_size")[0].value), 50), 1) + "";
+              }
+
+              function next_page()
+              {
+                document.getElementsByName("page_no")[0].value = Number(document.getElementsByName("page_no")[0].value) + 1 + "";
+              }
+
+              function pre_page()
+              {
+                document.getElementsByName("page_no")[0].value = Math.max(Number(document.getElementsByName("page_no")[0].value) - 1, 0) + "";
+              }
+
+            </script>
+
+            <input type="submit" value="确定" onclick="check_size()">
+            <input type="submit" value="上一页" onclick="check_size(),pre_page()">
+            <input type="submit" value="下一页" onclick="check_size(),next_page()">
+            <input type="button" value="返回首页" onclick="window.location='/'"/>
+        </form>
+    </div>
+    <hr>
+    <div>
+        <div id="req_cnt">
+            <p>total_cnt: {{total_count}} </p>
+            <p>Your request is: {{url}}</p>
+        </div>
+    </div>
+    <hr>
+    <div style="margin: 10px 0px;">
+    <table border = "1" class="pid_info">
+        <tr  style="vertical-align: top;">
+            <td class="frame_width" colspan='4' >广告商品信息</td>
+        </tr>
+        <tr>
+            <td class="frame_width">
+            {% for item in ret %}
+              <div class='extend_reco_pid_div'>
+                <div class="pid_img"><img src='{{item["img"]}}'> </div>
+                <div class="pid_pid"><a target="_blank" href="{{item["url"]}}">{{item['pid']}}</a></div>
+                <div class="pid_name" title="{{item['name']}}">单品名称: {{item['name']}}</div>
+                <div class="ad_name">ad_name: {{item['ad_name']}}</div>
+                <div class="pid_tip">{{item['category_name']}}</div>
+                <div class="pid_cid">cat_id: {{item['cat_id']}}</div>
+                <div class="pid_prom_type">prom_type: {{item['prom_type']}}</div>
+                <div class="pid_ctr">ctr: {{item['ctr']}}</div>
+                <div class="pid_related_type">related_type: {{item['related_type']}}</div>
+                <div class="pid_sim">sim: {{item['sim']}}</div>
+                <div class="pid_score">score: {{item['score']}}</div>
+                <div class="ad_id">ad_id: {{item['ad_id']}}</div>
+              </div>
+            {% end %}
+            </td>
+        </tr>
+    </table>
+    </div>
+   </body>
+</html>

@@ -1,0 +1,208 @@
+package com.dangdang;
+
+import java.net.MalformedURLException;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Random;
+
+import org.dom4j.Document;
+import org.dom4j.DocumentException;
+import org.dom4j.Node;
+import org.slf4j.LoggerFactory;
+import org.testng.annotations.AfterMethod;
+import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.Test;
+
+import com.dangdang.client.SearchRequester;
+import com.dangdang.client.URLBuilder;
+import com.dangdang.util.XMLParser;
+
+/**
+ * @author gaoyanjun@dangdang.com
+ * @version 
+ */
+public class IndexAddScheduler {
+	private final static org.slf4j.Logger logger = LoggerFactory.getLogger(IndexAddScheduler.class);
+
+	private static String ProductID = "0";
+	
+	@BeforeMethod
+	public void setup() {
+	}
+
+	@AfterMethod
+	public void clearup() {
+		try {
+			IndexDataHandler.ClearUpTestData(ProductID);
+		} catch (MalformedURLException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (DocumentException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+	}
+
+	/**
+	 * 正常增加索引
+	 * @throws DocumentException 
+	 * @throws MalformedURLException 
+	 */
+	@Test(enabled = false, groups = "p2")
+	public void NormalIndexAdd() throws MalformedURLException, DocumentException {
+		boolean isPass = true;
+		boolean addSuccess = false;
+		
+		// 随机造一个不存在的pid
+		Random random = new Random();
+		int randomPID = random.nextInt(Integer.MAX_VALUE);
+		String pid = Integer.toString(randomPID);
+		String product_name = "normal_add_into_index";
+		String display_status = "0";
+		String num_images = "5";
+		String stock_status = "1";
+		
+		// 获取指定模块的fulltm和incnum
+		Map<String, String> FulltmAndIncNum = IndexDataHandler.GetFulltmAndIncNum("searcher");
+		
+		// 调用http://10.255.254.188:8390/?product_id=pid,确定该品在索引中不存在
+		List<Node> PidNode = URLBuilder.porductSearch(pid, false);
+		
+		// 不存在随机生成的pid，则使用API写入
+		if(PidNode.isEmpty()){
+			ProductID = pid;
+			// 调用正常增加索引的api，product_id=pid，其他信息随便造
+			Map<String, String> paramMap = new HashMap<String, String>();
+			paramMap.put("product_id", pid);
+			paramMap.put("product_name", product_name);			
+			paramMap.put("display_status", "0");
+			paramMap.put("num_images", "5");
+			paramMap.put("stock_status", "1");
+			paramMap.put("_index_add", "1");
+			paramMap.putAll(FulltmAndIncNum);
+			
+			String url = URLBuilder.buildUrl(paramMap);
+			String ret = SearchRequester.get(url);
+			if(ret.contains("OK")){
+				addSuccess = true;
+				logger.info("add pid [" + pid + "] into index successfully");
+			}else
+				logger.error("add pid [" + pid + "] into index failed!");				
+		}else{
+			// TODO: optimize
+			NormalIndexAdd();
+			return;
+		}
+		
+		// 再次调用pid接口，验证各字段，是否真正写入成功
+		if(addSuccess){
+			List<Node> newPidNode = URLBuilder.porductSearch(pid, false);
+			if(newPidNode.isEmpty()){
+				logger.error("did not find pid [" + pid + "] in index!");
+			}else{
+				String newPid = XMLParser.product_id(newPidNode.get(0));
+				String newProductName =   XMLParser.product_name(newPidNode.get(0));
+				String newStockStatus = XMLParser.product_StockStatus(newPidNode.get(0));
+				String newDisplayStatus = XMLParser.product_displayStatus(newPidNode.get(0));
+				String newNumImages = XMLParser.product_numImage(newPidNode.get(0));
+				
+				if(newPid.equals(pid) && newProductName.equals(product_name) &&
+						newStockStatus.equals(stock_status) && newDisplayStatus.equals(display_status) &&
+						newNumImages.equals(num_images)){
+					logger.info("find pid [" + pid + "] in index, all attributes are correct!");
+				}else{
+					isPass = false;
+					logger.error("find pid [" + pid + "] in index, but attributes are not correct!");
+				}
+			}
+		}
+		
+		if(isPass){
+			logger.info(String.format(" - [LOG_SUCCESS] - normal add method was succeed - add pid %s into index successfully", pid));
+		}else
+			logger.error(String.format(" - [LOG_FAILED] - normal add method was failed - add pid %s into index successfully", pid));
+	}
+	
+	/**
+	 * 强制增加索引
+	 * @throws DocumentException 
+	 * @throws MalformedURLException 
+	 */
+	@Test(enabled = true, groups = "p2")
+	public void ForceIndexAdd() throws MalformedURLException, DocumentException{
+		boolean isPass = true;
+		boolean addSuccess = false;
+		
+		// 随机造一个不存在的pid
+		Random random = new Random();
+		int randomPID = random.nextInt(Integer.MAX_VALUE);
+		String pid = Integer.toString(randomPID);
+		String product_name = "force_add_into_index";
+		String display_status = "0";
+		String num_images = "5";
+		String stock_status = "1";
+		
+		// 获取指定模块的fulltm和incnum
+		Map<String, String> FulltmAndIncNum = IndexDataHandler.GetFulltmAndIncNum("searcher");
+		
+		// 调用http://10.255.254.188:8390/?product_id=pid,确定该品在索引中不存在
+		List<Node> PidNode = URLBuilder.porductSearch(pid, false);
+		
+		// 不存在随机生成的pid，则使用API写入
+		if(PidNode.isEmpty()){
+			ProductID = pid;
+			// 调用正常增加索引的api，product_id=pid，其他信息随便造
+			Map<String, String> paramMap = new HashMap<String, String>();
+			paramMap.put("product_id", pid);
+			paramMap.put("product_name", product_name);			
+			paramMap.put("display_status", "0");
+			paramMap.put("num_images", "5");
+			paramMap.put("stock_status", "1");
+			paramMap.put("_index_add", "1");
+			paramMap.put("_force_update", "1");
+			paramMap.putAll(FulltmAndIncNum);
+			
+			String url = URLBuilder.buildUrl(paramMap);
+			String ret = SearchRequester.get(url);
+			if(ret.contains("OK")){
+				addSuccess = true;
+				logger.info("add pid [" + pid + "] into index successfully");
+			}else
+				logger.error("add pid [" + pid + "] into index failed!");				
+		}else{
+			// TODO: optimize
+			ForceIndexAdd();
+			return;
+		}
+		
+		// 再次调用pid接口，验证各字段，是否真正写入成功
+		if(addSuccess){
+			List<Node> newPidNode = URLBuilder.porductSearch(pid, false);
+			if(newPidNode.isEmpty()){
+				logger.error("did not find pid [" + pid + "] in index!");
+			}else{
+				String newPid = XMLParser.product_id(newPidNode.get(0));
+				String newProductName =   XMLParser.product_name(newPidNode.get(0));
+				String newStockStatus = XMLParser.product_StockStatus(newPidNode.get(0));
+				String newDisplayStatus = XMLParser.product_displayStatus(newPidNode.get(0));
+				String newNumImages = XMLParser.product_numImage(newPidNode.get(0));
+				
+				if(newPid.equals(pid) && newProductName.equals(product_name) &&
+						newStockStatus.equals(stock_status) && newDisplayStatus.equals(display_status) &&
+						newNumImages.equals(num_images)){
+					logger.info("find pid [" + pid + "] in index, all attributes are correct!");
+				}else{
+					isPass = false;
+					logger.error("find pid [" + pid + "] in index, but attributes are not correct!");
+				}
+			}
+		}
+		
+		if(isPass){
+			logger.info(String.format(" - [LOG_SUCCESS] - force add method was succeed - add pid %s into index successfully", pid));
+		}else
+			logger.error(String.format(" - [LOG_FAILED] - force add method was failed - add pid %s into index successfully", pid));
+	}
+	
+}

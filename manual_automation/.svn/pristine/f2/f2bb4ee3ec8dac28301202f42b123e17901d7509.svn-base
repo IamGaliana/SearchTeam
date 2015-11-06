@@ -1,0 +1,52 @@
+#!/usr/bin/env python
+#encoding:utf8
+
+class PagesElements(object):
+
+    class LogInPage(object):
+        USERNAME = "id->username"
+        PASSWORD = "id->password"
+        SHOPID = "id->shopid"
+        IDCODE = "id->verifystr"
+        LOGINBUTTON = "id->login_submit"
+
+    class IndexPage(object):
+        CPC_HEADER_NAVIGATION = "xpath->//a[text()='点击付费广告']"
+        CPM_HEADER_NAVIGATION = "xpath->//a[text()='展示付费广告']"
+
+    class CpcIndexPage(object):
+        CPC_ADGROUP_TAB = "xpath->//a[text()='广告组']"
+        AD_LIST_FORM = "xpath->.//*[@id='form_ads']/.//li"
+
+    class PersonalListPage(object):
+        PID = "xpath->//ul/li[@class='row3']"
+
+
+    class CreatePersonalAdPage(object):
+        TITLE1 = "xpath->.//*[@id='ad_title_1']"
+        DAILY_LIMIT = "xpath->.//*[@id='ad_budget']"
+        SELECT_GROUP = "xpath->.//*[@id='sel_group']/option"
+        SUBMIT = "xpath->.//*[@id='btn_submit']"
+
+    class AddCpcGroupPage(object):
+        GROUP_NAME = "xpath->.//*[@id='group_info_form']/.//input[@class='input_text']"
+        START_DATE_INPUT = "id->input_start_date"
+        START_DATE_TODAY = "xpath->html/body/div[4]/table/tbody/tr/td/div/table/tbody/tr[2]/td[5]"
+        NO_END_DATE_RADIO = "xpath->.//*[@id='group_info_form']/.//input[@name='has_end' and @value='0']"
+        HAS_END_DATE_DADIO = "xpath->.//*[@id='group_info_form']/.//input[@name='has_end' and @value='1']"
+        END_DATE_INPUT = "id->input_end_date"
+        CONFIRM_BUTTON = "xpath->.//button[@name='ok']"
+        CONCEL_BUTTON = "xpath->.//button[@name='cancel']"
+
+    class CpmPages(object):
+        CHECK_BOX_FOR_EFFECTIVE_STATUS_AD = 'xpath->//li[text()="有效(展示中)"]/parent::ul/li[1]/input'
+        CHECK_BOX_FOR_REFUSED_STATUS_AD = 'xpath->//form[@id="form_ads"]/.//li/span[text()="已拒登"]'
+        CPM_PICTURE_TAB = 'xpath->//a[text()="图片"]'
+
+    class StatisticsPage(object):
+        AD_TABLE = "xpath->//table[@class='table']/.//td"
+
+#cpm列表页面
+cpm_CHECK_BOX_FOR_EFFECTIVE_STATUS_AD = 'xpath->//li[text()="有效(展示中)"]/parent::ul/li[1]/input'
+cpm_CHECK_BOX_FOR_REFUSED_STATUS_AD = 'xpath->//form[@id="form_ads"]/.//li/span[text()="已拒登"]'
+CPM_PICTURE_TAB = 'xpath->//a[text()="图片"]'

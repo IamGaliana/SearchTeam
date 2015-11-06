@@ -1,0 +1,40 @@
+package Test;
+
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.util.HashMap;
+import java.util.Map;
+
+public class filesOperation {
+	public static Map<String,String> filemap = new HashMap<String,String>();
+	public static void Main(String[] args){
+		try {
+			GetFileMap("D:/test");
+		} catch (IOException e) {
+			System.out.println("IOException at main method: " + e.getMessage());
+			e.printStackTrace();
+		}
+			
+	}
+	
+	public static Map<String,String> GetFileMap(String path) throws FileNotFoundException, IOException{
+		try{
+			File file = new File(path);
+			File[] fileList = file.listFiles();
+			for(int i=0;i<fileList.length; i ++){			
+				if(fileList[i].isFile()){
+					System.out.println("file path is:" + fileList[i].getAbsolutePath());
+					System.out.println("file name is:" + fileList[i].getName());
+					filemap.put(path, fileList[i].getAbsolutePath() + fileList[i].getName());
+				}else if(fileList[i].isDirectory()){
+					GetFileMap(fileList[i].getPath());
+				}
+			}
+		}
+		catch(FileNotFoundException e){
+			System.out.println("GetFileMap() exception:" + e.getMessage());
+		}
+		return filemap;
+	}
+}
